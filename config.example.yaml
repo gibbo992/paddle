@@ -1,0 +1,116 @@
+# TradeBot configuration.
+#
+# Copy to config.yaml (`tradebot init` does this) and edit.
+# Secrets are read from environment variables, never from this file.
+
+database_path: tradebot.db
+log_level: INFO
+cycle_seconds: 300
+
+moltbook:
+  # Keep the `www`. Moltbook redirects the bare domain and the redirect strips
+  # the Authorization header, which turns into silent 401s.
+  base_url: https://www.moltbook.com
+  api_key_env: MOLTBOOK_API_KEY
+
+  # Documented limits: 60 reads / 60s. Left slightly under.
+  requests_per_minute: 55
+
+  # Only `general` and `announcements` are documented as existing. Add trading
+  # communities once you have confirmed their names -- `tradebot verify-api`
+  # will tell you whether a submolt route answers.
+  #
+  # Note: submolts default to `allow_crypto: false` and crypto posts are
+  # auto-removed there, so crypto calls mostly live in crypto-flagged submolts.
+  submolts:
+    - general
+
+  endpoints:
+    register: /api/v1/agents/register
+    me: /api/v1/agents/me
+    status: /api/v1/agents/status
+    home: /api/v1/home
+    posts: /api/v1/posts
+    feed: /api/v1/feed
+    submolt_posts: /api/v1/submolts/{submolt}/feed
+    post_comments: /api/v1/posts/{post_id}/comments
+    profile: /api/v1/agents/profile
+    submolts: /api/v1/submolts
+    search: /api/v1/search
+
+  # Moltbook is inconsistent here: /posts returns `posts`, /search returns
+  # `results`. The client falls back through both, so this is only a hint.
+  response_paths:
+    items: posts
+    next_cursor: next_cursor
+
+trading:
+  mode: paper              # paper | live
+  base_currency: USD
+  starting_cash: 10000
+
+  # Live trading needs BOTH mode: live and this flag, AND a broker adapter
+  # you have implemented yourself (see execution/broker.py). TradeBot ships
+  # no venue integration -- paper execution only.
+  live_trading_confirmed: false
+  broker: paper
+
+  fee_bps: 10              # 0.10% per side
+  slippage_bps: 5          # 0.05% adverse, applied to every fill
+  allowed_symbols: []      # empty = allow anything not blocked
+  blocked_symbols: []
+
+# Hard ceilings owned by you. The self-improvement loop tunes behaviour
+# *within* these and is clamped to them on every mutation -- training can
+# never widen the bot's risk appetite past this block.
+risk:
+  max_position_pct: 5.0          # per position, % of equity
+  max_gross_exposure_pct: 60.0
+  max_concurrent_positions: 8
+  per_asset_cap_pct: 15.0
+  daily_loss_limit_pct: 4.0      # blocks new risk for the day
+  max_drawdown_pct: 20.0         # kill switch: flattens everything
+  min_stop_loss_pct: 1.0
+  max_stop_loss_pct: 25.0
+  max_hold_hours: 168
+  min_trade_notional: 10.0
+
+# Agent reputation. Computed only from trades TradeBot shadow-executed on
+# independent prices -- never from claimed PnL, karma, or leaderboard rank.
+reputation:
+  prior_strength: 10.0     # trades before a record is taken near face value
+  min_track_record: 8      # closed shadow trades before an agent is copyable
+  half_life_days: 21.0
+  max_tracked_agents: 250
+
+improvement:
+  enabled: true
+  challengers: 4               # shadow policies evaluated in parallel
+  min_eval_trades: 30          # closed trades before a challenger is judged
+  bootstrap_samples: 2000
+  promote_confidence: 0.90     # P(challenger beats champion) needed to promote
+  retire_confidence: 0.35      # below this it is convincingly worse: retire it
+  max_drawdown_regression_pct: 2.0
+  mutation_scale: 0.25
+  seed: 7
+
+llm:
+  enabled: true
+  model: claude-opus-5
+  effort: medium
+  max_tokens: 4096
+  api_key_env: ANTHROPIC_API_KEY
+  batch_size: 8
+  max_lessons_in_prompt: 25
+
+# An independent price source is required: the bot marks every position
+# itself rather than believing prices quoted in posts.
+market_data:
+  provider: static           # static | http
+  # For provider: http --
+  # base_url: https://your-quote-api.example.com/v1/quote
+  # api_key_env: MARKETDATA_API_KEY
+  # price_path: data.price   # dotted path to the number in the response
+  # symbol_param: symbol
+  cache_seconds: 30
+  static_prices: {}
