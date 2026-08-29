@@ -315,8 +315,6 @@ function setView(view) {
     renderRivers({
       url: state.settings.rivers.url,
       frame: $('riverFrame'),
-      hostEl: $('riverHost'),
-      hintEl: $('riverHint'),
       openBtn: $('riverOpen'),
     });
     measureRivers();

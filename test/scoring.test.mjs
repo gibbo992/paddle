@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { scoreHour, scoreWind, scoreSwellDirection, scoreTide, steepness, ratingFor } from '../js/scoring.js';
-import { getSpot } from '../js/spots.js';
+import { scoreHour, scoreWind, scoreSwellDirection, scoreTide, steepness, ratingFor, limitingFactor } from '../js/scoring.js';
+import { getSpot, SPOTS } from '../js/spots.js';
 import { getCraft } from '../js/craft.js';
 import { hour } from './fixtures.mjs';
 
@@ -184,23 +184,44 @@ test('swell direction scoring is continuous around the window edge', () => {
 });
 
 test('the score spreads across the range instead of bunching at the top', () => {
-  // Nothing wrong is not the same as good: a calm, perfectly-timed, textbook
-  // offshore morning with no swell must not score like a real session.
-  const conditions = [
-    { waveHeight: 0.15, swellPeriod: 5 },
-    { waveHeight: 0.4, swellPeriod: 6 },
-    { waveHeight: 0.7, swellPeriod: 8 },
-    { waveHeight: 1.1, swellPeriod: 10 },
-    { waveHeight: 1.6, swellPeriod: 12 },
-    { waveHeight: 2.5, swellPeriod: 13 },
-  ];
-  const scores = conditions.map((c) =>
-    scoreHour(hour({ ...c, swellHeight: c.waveHeight, wavePeriod: c.swellPeriod }), longsands, surfKayak).score);
+  // Sampled across conditions that actually occur, not a curated list of good
+  // days: most hours on this coast are not surfable, and the scale has to say
+  // so. "Nothing is wrong" must not be enough to score well on its own.
+  const scores = [];
+  for (const hs of [0.1, 0.3, 0.6, 0.9, 1.3, 1.8, 2.4, 3.0]) {
+    for (const per of [4, 6, 8, 11, 14]) {
+      for (const windDir of [70, 160, 250, 340]) {
+        for (const windKn of [3, 10, 18, 26]) {
+          for (const tideNorm of [0.1, 0.5, 0.9]) {
+            scores.push(scoreHour(hour({
+              waveHeight: hs, swellHeight: hs, swellPeriod: per, wavePeriod: per,
+              windDirection: windDir, windKn, tideNorm,
+            }), longsands, surfKayak).score);
+          }
+        }
+      }
+    }
+  }
 
-  const excellent = scores.filter((s) => s >= 8.5).length;
-  assert.ok(excellent <= 2, `too many excellent scores: ${scores.map((s) => s.toFixed(1)).join(', ')}`);
-  assert.ok(Math.max(...scores) - Math.min(...scores) > 6, 'scores should span most of the scale');
-  assert.ok(scores.every((s) => s <= 9.7), 'nothing should hit a clean 10');
+  const frac = (p) => scores.filter(p).length / scores.length;
+  const excellent = frac((s) => s >= 8.5);
+  const poor = frac((s) => s < 4);
+
+  assert.ok(excellent < 0.10, `too many excellent scores: ${(excellent * 100).toFixed(1)}%`);
+  assert.ok(poor > 0.35, `not enough poor scores — the scale is too generous: ${(poor * 100).toFixed(1)}%`);
+  assert.ok(Math.max(...scores) <= 9.7, 'nothing should exceed the ceiling');
+  assert.ok(Math.max(...scores) - Math.min(...scores) > 8, 'scores should span most of the scale');
+});
+
+test('bigger and cleaner beats smaller and weaker, up to the craft ceiling', () => {
+  const at = (hs, per) => scoreHour(hour({
+    waveHeight: hs, swellHeight: hs, swellPeriod: per, wavePeriod: per,
+  }), longsands, surfKayak).score;
+
+  assert.ok(at(0.15, 5) < at(0.4, 6));
+  assert.ok(at(0.4, 6) < at(0.7, 8));
+  assert.ok(at(0.7, 8) < at(1.1, 10));
+  assert.ok(at(1.1, 10) > at(2.5, 13), 'past the ceiling it should fall away again');
 });
 
 test('the middle of an ideal band beats its edges', () => {
@@ -224,4 +245,59 @@ test('wave and conditions stages are reported separately', () => {
   const r = scoreHour(hour(), cullercoats, surfKayak);
   assert.ok(r.wave > 0 && r.wave <= 1);
   assert.ok(r.conditions > 0 && r.conditions <= 1);
+});
+
+test('a rising tide is preferred only where the guides say so', () => {
+  // Longsands banks work "on the tidal push"; King Edward's has no such note.
+  const push = (spot, tideState) => scoreTide(0.5, spot, tideState);
+  assert.ok(push(longsands, 'rising') > push(longsands, 'falling'));
+  assert.equal(push(getSpot('kingedwards'), 'rising'), push(getSpot('kingedwards'), 'falling'));
+});
+
+test('tide preferences match the researched spot data', () => {
+  // King Edward's is a low-tide break; Blyth is a high-tide one. If these ever
+  // flip, the spot table has drifted from its sources.
+  const keb = getSpot('kingedwards');
+  const blyth = getSpot('blyth');
+  assert.ok(scoreTide(0.15, keb) > scoreTide(0.9, keb), "King Edward's should favour low water");
+  assert.ok(scoreTide(0.9, blyth) > scoreTide(0.15, blyth), 'Blyth should favour high water');
+  // Longsands works at all stages — no state of tide should be badly punished.
+  const ls = [0.1, 0.35, 0.6, 0.85].map((t) => scoreTide(t, longsands));
+  assert.ok(Math.min(...ls) > 0.7, `Longsands should work through the tide: ${ls.join(', ')}`);
+});
+
+test('spot hazards are surfaced, not buried in prose', () => {
+  for (const spot of SPOTS) {
+    assert.ok(Array.isArray(spot.hazards), `${spot.id} needs a hazards array`);
+    assert.ok(['sourced', 'estimated'].includes(spot.confidence),
+      `${spot.id} must declare whether its parameters are sourced or estimated`);
+  }
+  assert.ok(getSpot('whitley').hazards.some((h) => /rock/i.test(h)), 'Whitley: rocks are a stated hazard');
+});
+
+test('the limiting factor knows which way size is wrong', () => {
+  const big = scoreHour(hour({ waveHeight: 2.3, swellHeight: 2.3, swellPeriod: 11, wavePeriod: 11 }),
+    longsands, surfKayak);
+  const small = scoreHour(hour({ waveHeight: 0.3, swellHeight: 0.3, swellPeriod: 7, wavePeriod: 7 }),
+    longsands, surfKayak);
+
+  assert.match(limitingFactor(big, surfKayak).label, /big/, 'an oversized day must not read as "too small"');
+  assert.match(limitingFactor(small, surfKayak).label, /small/);
+});
+
+test('limiting-factor wording matches how bad it actually is', () => {
+  // A mildly off-axis swell must not be described as out of the window — that
+  // reads as a contradiction next to a high score.
+  const slightlyOff = scoreHour(hour({ swellDirection: 100, waveDirection: 100 }), longsands, surfKayak);
+  const wayOff = scoreHour(hour({ swellDirection: 200, waveDirection: 200 }), longsands, surfKayak);
+
+  const mild = limitingFactor(slightlyOff, surfKayak);
+  if (mild.key === 'direction' && mild.val >= 0.4) {
+    assert.doesNotMatch(mild.label, /out of the window/);
+  }
+  // A swell from the wrong quarter arrives as no swell at all, so size scores
+  // zero — but the useful thing to say is why, not that it is small.
+  const severe = limitingFactor(wayOff, surfKayak);
+  assert.equal(severe.key, 'direction', 'should blame the cause, not the symptom');
+  assert.match(severe.label, /out of the window/);
 });

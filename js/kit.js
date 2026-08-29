@@ -77,6 +77,10 @@ export function safetyFlags({ scored, hour, spot, craft, regime }) {
     });
   }
 
+  for (const hazard of spot.hazards || []) {
+    add({ level: 'info', code: `hazard:${hazard}`, text: hazard });
+  }
+
   if (hour.daylight === false) {
     add({ level: 'warning', code: 'dark', text: 'Outside daylight hours.' });
   }

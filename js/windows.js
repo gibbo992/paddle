@@ -171,7 +171,7 @@ function sessionNote(res, craft) {
   const serious = res.flags.find((f) => f.level === 'critical' || f.level === 'serious');
   if (serious) return serious.text;
 
-  const { val, label } = limitingFactor(res);
+  const { val, label } = limitingFactor(res, craft);
   if (res.score < 4) return `Not much in it — ${label}.`;
   if (val < 0.55) return `Worth a go, but ${label}.`;
   if (val < 0.8) return `Solid, though ${label}.`;

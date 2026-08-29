@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Kayak Surf — Cullercoats</title>
 <meta name="description" content="Surf conditions scored for a surf kayak or whitewater kayak on the Tyne &amp; Wear coast.">
-<meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#f4f4f1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#202124" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Kayak Surf">
@@ -20,7 +20,7 @@
 <header class="topbar">
   <div class="topbar__row">
     <div class="brand">
-      Kayak Surf
+      Kayak<b>Surf</b>
       <small id="brandSub">Cullercoats &amp; the Tyne coast</small>
     </div>
     <div class="topbar__spacer"></div>
@@ -102,10 +102,8 @@
       <div class="spotrow" id="spotRowForecast" role="group" aria-label="Spot"></div>
       <div id="days"><div class="skeleton" style="height:80px"></div></div>
       <div class="legend">
-        <span>Worse</span>
-        <span class="legend__ramp" id="legendRamp"></span>
-        <span>Better</span>
-        <span style="margin-left:auto" id="legendUnit"></span>
+        <span class="legend__ramp" id="legendRamp" style="display:contents"></span>
+        <span id="legendUnit"></span>
       </div>
       <details>
         <summary>Show as a table</summary>
@@ -117,18 +115,8 @@
 
   <!-- ---------------- RIVERS (whitewater) ---------------- -->
   <section class="view" id="view-rivers" hidden>
-    <div class="riverbar">
-      <div class="riverbar__body">
-        <div class="riverbar__title">RiverPredictor</div>
-        <div class="riverbar__host" id="riverHost"></div>
-      </div>
-      <button class="riverbar__btn" id="riverOpen" type="button">Open</button>
-    </div>
-    <!-- Sites commonly refuse to be framed (X-Frame-Options / CSP
-         frame-ancestors) and a cross-origin frame gives no way to detect it,
-         so the escape hatch is always on screen rather than behind a guess. -->
     <div class="riverframe" id="riverFrame"></div>
-    <p class="riverhint" id="riverHint"></p>
+    <button class="riveropen" id="riverOpen" type="button" aria-label="Open RiverPredictor in browser" title="Open in browser" data-icon="external"></button>
   </section>
 
 <nav class="nav" role="tablist" aria-label="Views">
