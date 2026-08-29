@@ -90,6 +90,25 @@ export function renderSettings(root, ctx) {
   dl.append(dlcb, dllab);
   root.append(dl);
 
+  // ---- rivers
+  root.append(section('Whitewater'));
+  const riverField = el('div', 'field');
+  const riverLab = el('label', null, 'RiverPredictor address');
+  const riverInp = el('input');
+  riverInp.type = 'url';
+  riverInp.value = s.rivers.url;
+  riverInp.placeholder = 'https://riverpredictor.uk/';
+  riverInp.spellcheck = false;
+  riverInp.autocapitalize = 'off';
+  riverInp.addEventListener('change', () => { s.rivers.url = riverInp.value.trim(); commit(); });
+  riverLab.htmlFor = riverInp.id = 'river-url';
+  riverField.append(riverLab, riverInp);
+  riverField.append(el('p', 'field__hint',
+    'What the Rivers tab loads. Point it at a region or favourites page if you '
+    + 'would rather land there than on the front page. If the tab comes up blank, '
+    + 'the site is refusing to be embedded — use the Open button to view it in your browser.'));
+  root.append(riverField);
+
   // ---- google calendar
   root.append(section('Google Calendar'));
   root.append(googleBlock(s, commit, ctx));

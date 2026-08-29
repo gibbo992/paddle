@@ -19,12 +19,15 @@ export const ICONS = {
   wave: svg('<path d="M2 15.5c2 0 2.5-2 5-2s3 2 5 2 2.5-2 5-2 3 2 5 2"/><path d="M2 10c2 0 2.5-2 5-2s3 2 5 2 2.5-2 5-2 3 2 5 2"/>'),
   calendar: svg('<rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/>'),
   chart: svg('<path d="M3 20h18"/><path d="M6 20v-6M10.5 20V8M15 20v-9M19.5 20V5"/>'),
+  // A river between banks, to read as moving water rather than more sea.
+  river: svg('<path d="M4 3c1.6 3.4 2.2 6.4 1.8 9-.4 2.9.1 5.9 1.4 9"/><path d="M20 3c-1.6 3.4-2.2 6.4-1.8 9 .4 2.9-.1 5.9-1.4 9"/><path d="M12 6.5c-1.1 1.6-1.4 3-.9 4.3.6 1.4.3 2.8-.9 4.2"/>'),
 
   // Chrome -----------------------------------------------------------------
   refresh: svg('<path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/>'),
   settings: svg('<circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2 2 2 0 1 1-4 0 1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15a2 2 0 1 1 0-4 1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 4.1a2 2 0 1 1 4 0 1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 21 11a2 2 0 1 1 0 4Z"/>', { w: 1.4 }),
   close: svg('<path d="M18 6 6 18M6 6l12 12"/>'),
   arrowRight: svg('<path d="M5 12h14M13 6l6 6-6 6"/>'),
+  external: svg('<path d="M14 4h6v6"/><path d="M20 4 11 13"/><path d="M18 14v4.5A1.5 1.5 0 0 1 16.5 20h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/>'),
 
   // Status — always paired with a label, never colour alone.
   critical: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.3h.01"/>'),

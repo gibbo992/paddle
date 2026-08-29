@@ -115,10 +115,27 @@
   </section>
 </main>
 
+  <!-- ---------------- RIVERS (whitewater) ---------------- -->
+  <section class="view" id="view-rivers" hidden>
+    <div class="riverbar">
+      <div class="riverbar__body">
+        <div class="riverbar__title">RiverPredictor</div>
+        <div class="riverbar__host" id="riverHost"></div>
+      </div>
+      <button class="riverbar__btn" id="riverOpen" type="button">Open</button>
+    </div>
+    <!-- Sites commonly refuse to be framed (X-Frame-Options / CSP
+         frame-ancestors) and a cross-origin frame gives no way to detect it,
+         so the escape hatch is always on screen rather than behind a guess. -->
+    <div class="riverframe" id="riverFrame"></div>
+    <p class="riverhint" id="riverHint"></p>
+  </section>
+
 <nav class="nav" role="tablist" aria-label="Views">
   <button class="nav__btn" data-view="now" aria-current="page" data-icon="wave">Now</button>
   <button class="nav__btn" data-view="windows" data-icon="calendar">Best times</button>
   <button class="nav__btn" data-view="forecast" data-icon="chart">Forecast</button>
+  <button class="nav__btn" data-view="rivers" data-icon="river">Rivers</button>
 </nav>
 
 <!-- ---------------- SETTINGS SHEET ---------------- -->

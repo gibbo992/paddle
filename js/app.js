@@ -11,6 +11,7 @@ import * as cal from './calendar.js';
 import * as ui from './ui.js';
 import { fmtClock } from './util.js';
 import { iconHtml } from './icons.js';
+import { renderRivers, measureRivers } from './rivers.js';
 import { renderSettings } from './settings-ui.js';
 import { demoForecast, isDemo } from './demo.js';
 
@@ -113,6 +114,7 @@ async function refreshCalendar({ interactive = false } = {}) {
 // --- rendering -------------------------------------------------------------
 
 function render() {
+  if (state.view === 'rivers') { measureRivers(); return; }
   const spot = activeSpot();
   const craft = activeCraft();
   const fc = forecast();
@@ -289,13 +291,37 @@ const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) =>
 
 // --- views -----------------------------------------------------------------
 
+const VIEWS = ['now', 'windows', 'forecast', 'rivers'];
+
 function setView(view) {
   state.view = view;
-  for (const v of ['now', 'windows', 'forecast']) $(`view-${v}`).hidden = v !== view;
+  for (const v of VIEWS) $(`view-${v}`).hidden = v !== view;
   for (const b of document.querySelectorAll('.nav__btn')) {
-    b.toggleAttribute('aria-current', b.dataset.view === view);
     if (b.dataset.view === view) b.setAttribute('aria-current', 'page');
+    else b.removeAttribute('aria-current');
   }
+
+  // The craft control and the spot row are surf-only; on the Rivers tab they
+  // are noise, and the embed wants every pixel it can get.
+  const rivers = view === 'rivers';
+  $('craftRow').hidden = rivers;
+  document.body.classList.toggle('rivers-open', rivers);
+  $('banners').hidden = rivers;
+
+  // The spot name in the header belongs to the surf forecast, not to rivers.
+  $('brandSub').textContent = rivers ? 'Whitewater — river levels' : activeSpot().name;
+
+  if (rivers) {
+    renderRivers({
+      url: state.settings.rivers.url,
+      frame: $('riverFrame'),
+      hostEl: $('riverHost'),
+      hintEl: $('riverHint'),
+      openBtn: $('riverOpen'),
+    });
+    measureRivers();
+  }
+
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
 
@@ -361,6 +387,7 @@ function wire() {
     if (e.key === 'Escape') { closeSettings(); ui.hideTooltip($('tooltip')); }
   });
   document.addEventListener('scroll', () => ui.hideTooltip($('tooltip')), { passive: true });
+  window.addEventListener('resize', () => { if (state.view === 'rivers') measureRivers(); });
 
   // Re-render on wake so "now" doesn't silently drift while the app sits open.
   document.addEventListener('visibilitychange', () => {

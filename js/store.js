@@ -25,6 +25,12 @@ export const DEFAULT_SETTINGS = {
     { id: 'weekend', label: 'Weekend', days: [0, 6], start: '06:30', end: '19:00', enabled: true },
   ],
 
+  // Whitewater tab. Editable because the site may move, and because you may
+  // prefer a deep link (a region or a favourites page) over the front page.
+  rivers: {
+    url: 'https://riverpredictor.uk/',
+  },
+
   google: {
     enabled: false,
     clientId: '',

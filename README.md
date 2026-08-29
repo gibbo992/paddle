@@ -14,7 +14,13 @@ no account, no server, no API key.
 
 ---
 
-## What it tells you
+The app has two sides, on one bottom nav:
+
+- **Surf** (Now · Best times · Forecast) — everything below.
+- **Rivers** — [RiverPredictor](https://riverpredictor.uk/) embedded, for when
+  the sea is flat and it has been raining.
+
+## What the surf side tells you
 
 - **A score out of 10** for the craft you picked, at the spot you picked, right now.
 - **Best sessions** — the next week ranked across every beach you have switched
@@ -105,6 +111,27 @@ send it to.
 
 If you skip all this, the app still ranks sessions across your configured
 free-time windows — it just assumes you're free during them.
+
+## The Rivers tab
+
+Loads [riverpredictor.uk](https://riverpredictor.uk/) in a frame, full screen,
+with the surf-only controls hidden.
+
+**It may come up blank, and that is not a bug in this app.** Sites routinely
+refuse to be embedded by sending `X-Frame-Options: DENY` or a CSP
+`frame-ancestors` rule. A cross-origin frame gives JavaScript no usable signal
+about this — the `load` event fires either way and reading into the frame throws
+regardless — so there is no honest way to detect a refusal and swap in a
+fallback automatically. That is why the escape hatch is permanent rather than
+conditional: an **Open** button in the bar and a line underneath linking
+straight out to the site.
+
+If it does get refused, the Open button is the whole feature, and the tab is
+effectively a shortcut. Nothing else in the app depends on it.
+
+The address is editable at **Settings → Whitewater**, so you can point it at a
+region or favourites page rather than the front page if the site supports deep
+links.
 
 ## Tuning the spots
 
