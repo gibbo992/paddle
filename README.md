@@ -133,11 +133,40 @@ The address is editable at **Settings → Whitewater**, so you can point it at a
 region or favourites page rather than the front page if the site supports deep
 links.
 
+## Where the spot data comes from
+
+Every spot in `js/spots.js` declares `confidence: 'sourced'` or `'estimated'`.
+
+**Sourced** — swell direction, offshore wind and tide preference taken from
+published break guides (surf-forecast.com break pages, Surfline spot guides):
+
+| Spot | Ideal swell | Offshore wind | Best tide |
+|---|---|---|---|
+| Tynemouth Longsands | NE | WSW | all stages, best **on the push** |
+| King Edward's Bay | NNE | W | **low** |
+| Whitley Bay | NNE | SW | not published — estimated |
+| Seaton Sluice | NNE | SSW | **mid** |
+| Blyth South Beach | NNE (takes N→ENE→SE) | W/WNW | **high**, better rising |
+
+**Estimated** — Cullercoats. It isn't listed as a break by any of the forecast
+sites, because at 0–1 ft it is beneath a shortboard's notice; the guides
+describe it only as a sheltered semi-circular bay between two stone piers. That
+absence is the whole reason this app exists, but it does mean its swell window,
+shelter and tide band are my guesses rather than anyone's published numbers.
+
+Note those guides describe what a **board** wants. The craft profiles in
+`craft.js` re-score it for a boat; a spot's swell window, shelter and tide
+preference are properties of the beach and hold whatever you are paddling.
+
+`facing` is set from the reported **offshore wind** rather than from the
+geometry of the beach, because that is the job it does in the model. In a bay
+sheltered by a headland the best wind is not square to the sand, so taking it
+from the guide beats taking it from a map.
+
 ## Tuning the spots
 
-**This is the part most worth editing.** The swell windows, tide preferences and
-shelter factors in `js/spots.js` are informed estimates, not surveyed data. They
-are what decide whether the app agrees with what you find when you get there.
+**This is still the part most worth editing** — published guides are coarse, and
+two of the six tide bands are guesses.
 
 ```js
 {
@@ -192,9 +221,25 @@ Other details worth knowing:
 - **Hard caps** override the maths for size beyond the craft's limit and for
   strong offshore wind — judgements the weighted mean must not be able to talk
   its way out of.
+- **A rising tide counts** where the guides say so (Longsands' banks work "on
+  the tidal push", Blyth is better on a push). A modest ±8%, since height is
+  the larger effect.
+- **The limiting factor names the cause, not the symptom.** A swell from the
+  wrong quarter arrives as no swell, so size scores zero — but the app says the
+  swell is out of the window, which is the useful thing to know.
 
 Breaking face height is shown as roughly 1.4 × significant wave height, which is
 what you'd call it standing on the beach.
+
+## Look and feel
+
+Styled to sit alongside RiverPredictor, which the Rivers tab embeds: light
+Material surfaces, a light/bold split wordmark, thin outline icons, and the
+same traffic-light status scale for the score that RiverPredictor uses for
+river levels. Reading two colour languages one tap apart is worse than either,
+so the surf score is green-through-red rather than a sequential ramp — and the
+rating word is printed beside every coloured element, so nothing depends on
+telling green from red. Dark mode follows the OS.
 
 ## Data
 

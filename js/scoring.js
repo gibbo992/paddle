@@ -101,11 +101,21 @@ export function scoreSwellDirection(swellFromDeg, spot) {
   return clamp(0.25 * Math.exp(-miss / 18), FLOOR, 0.25);
 }
 
-export function scoreTide(tideNorm, spot) {
+export function scoreTide(tideNorm, spot, tideState) {
   if (!Number.isFinite(tideNorm)) return 0.7;
   const t = spot.tide;
   // Floored — the wrong tide usually makes a break worse, not absent.
-  return clamp(trapezoid(tideNorm, t.ok0 - 0.12, t.best0, t.best1, t.ok1 + 0.12), 0.22, 1);
+  let score = clamp(trapezoid(tideNorm, t.ok0 - 0.12, t.best0, t.best1, t.ok1 + 0.12), 0.22, 1);
+
+  // Some breaks want the tide moving, not just at a height. The Longsands
+  // banks are described as working "on the tidal push" and Blyth as better on
+  // a rising tide. Height alone can't express that, so it's a modest separate
+  // term — a secondary effect, not a deciding one.
+  if (spot.prefersPush && tideState) {
+    if (tideState === 'rising') score = clamp(score * 1.08, 0, 1);
+    else if (tideState === 'falling') score = clamp(score * 0.92, 0, 1);
+  }
+  return score;
 }
 
 /**
@@ -141,7 +151,7 @@ export function scoreHour(h, spot, craft) {
   const powerScore = Math.max(periodScore, FLOOR) ** 0.65 * Math.max(steepScore, FLOOR) ** 0.35;
 
   const wind = scoreWind(h.windKn, h.windDirection, spot, craft);
-  const tideScore = scoreTide(h.tideNorm, spot);
+  const tideScore = scoreTide(h.tideNorm, spot, h.tideState);
 
   const parts = {
     size: sizeScore,
@@ -229,17 +239,52 @@ export function scoreHour(h, spot, craft) {
   };
 }
 
-const WEAKEST_LABEL = {
-  size: 'too small',
-  power: 'gutless and shapeless',
-  direction: 'the swell is out of the window',
-  tide: 'the tide is wrong for it',
-};
+/**
+ * The weakest component, and a phrase for it.
+ *
+ * The phrasing has to track the DEGREE, not just the identity: a direction
+ * score of 0.7 means the swell is a little off-axis, not that it is out of the
+ * window, and saying the latter under an 8.9 reads as a contradiction. Size
+ * also has to know which way it is wrong — the same low score means "too
+ * small" below the band and "too big" above it.
+ */
+export function limitingFactor(res, craft) {
+  let [key, val] = Object.entries(res.parts).sort((a, b) => a[1] - b[1])[0];
 
-/** The weakest component, and a phrase for it. */
-export function limitingFactor(res) {
-  const [key, val] = Object.entries(res.parts).sort((a, b) => a[1] - b[1])[0];
-  const label = key === 'wind' ? `the wind is ${res.wind.relation}` : WEAKEST_LABEL[key];
+  // Direction attenuates height, so a swell from the wrong quarter shows up as
+  // a size problem. Report the cause, not the symptom: "too small" is true but
+  // useless when the answer is that the swell is pointing somewhere else.
+  if (key === 'size' && res.parts.direction < 0.35) {
+    key = 'direction';
+    val = res.parts.direction;
+  }
+
+  const bad = val < 0.4;
+  let label;
+
+  switch (key) {
+    case 'size': {
+      const mid = craft ? (craft.size.b + craft.size.c) / 2 : NaN;
+      const big = Number.isFinite(mid) && res.hs > mid;
+      if (big) label = bad ? 'too big' : 'on the big side';
+      else label = bad ? 'too small' : 'on the small side';
+      break;
+    }
+    case 'power':
+      label = bad ? 'gutless and shapeless' : 'a bit soft';
+      break;
+    case 'wind':
+      label = `the wind is ${res.wind.relation}`;
+      break;
+    case 'direction':
+      label = bad ? 'the swell is out of the window' : 'the swell angle is off-square';
+      break;
+    case 'tide':
+      label = bad ? 'the tide is wrong for it' : 'the tide is not quite right';
+      break;
+    default:
+      label = key;
+  }
   return { key, val, label };
 }
 
@@ -251,7 +296,7 @@ export function verdictFor(res, spot, craft, { future = false } = {}) {
   if (res.flags.some((f) => f.code === 'flat')) return `Flat at ${spot.short}. Nothing doing.`;
   if (res.flags.some((f) => f.code === 'too-big')) return craft.tooBigMsg;
 
-  const { label } = limitingFactor(res);
+  const { label } = limitingFactor(res, craft);
 
   if (res.score >= 8.5) {
     return future

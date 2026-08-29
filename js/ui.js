@@ -5,28 +5,26 @@ import {
   clamp, compass, mToFt, fmtClock, fmtDuration, round, dayKey,
 } from './util.js';
 import { iconHtml } from './icons.js';
-
-const RAMP_STEPS = 7;
+import { ratingFor, RATINGS } from './scoring.js';
 
 /**
- * Score 0..10 → a step on the sequential ramp.
+ * Score → colour, on a traffic-light STATUS scale rather than a sequential
+ * ramp. RiverPredictor grades its levels green/yellow/orange/red and that page
+ * is one tab away, so a second colour language in the same app would just be
+ * confusing. Returns CSS variables so the scale can restep for dark mode.
  *
- * Returns a CSS variable rather than a hex value so the ramp can invert between
- * themes: on a dark surface the low end must be the dark step (receding into
- * the background) and the high end the bright one, and on a light surface the
- * reverse. Baking hex in here made every flat day louder than every good one.
+ * Every element that takes one of these also prints the rating word beside it,
+ * so nothing depends on telling green from red.
  */
 export function scoreColour(score) {
   if (!Number.isFinite(score)) return 'var(--surface-3)';
-  const i = Math.min(RAMP_STEPS - 1, Math.round(clamp(score / 10, 0, 1) * (RAMP_STEPS - 1)));
-  return `var(--ramp-${i})`;
+  return `var(--score-${ratingFor(score).tone})`;
 }
 
-/** Ink that stays legible on that step, in either theme. */
+/** Ink that clears contrast on that step, in either theme. */
 export function scoreInk(score) {
   if (!Number.isFinite(score)) return 'var(--text-primary)';
-  const i = Math.min(RAMP_STEPS - 1, Math.round(clamp(score / 10, 0, 1) * (RAMP_STEPS - 1)));
-  return `var(--ramp-${i}-ink)`;
+  return `var(--score-${ratingFor(score).tone}-ink)`;
 }
 
 const el = (tag, cls, text) => {
@@ -66,20 +64,19 @@ export function renderHero(root, { res, spot, craft, hour, verdict, units }) {
 
   // Dial: a meter, so the track is a lighter step of the same ramp.
   const dial = el('div', 'dial');
-  const R = 41;
+  const R = 40;
   const C = 2 * Math.PI * R;
   const frac = clamp(res.score / 10, 0, 1);
   const colour = scoreColour(res.score);
   dial.innerHTML = `
-    <svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true">
-      <circle cx="48" cy="48" r="${R}" fill="none" stroke="var(--surface-3)" stroke-width="8"/>
-      <circle cx="48" cy="48" r="${R}" fill="none" stroke="${colour}" stroke-width="8"
+    <svg width="92" height="92" viewBox="0 0 92 92" aria-hidden="true">
+      <circle cx="46" cy="46" r="${R}" fill="none" stroke="var(--surface-3)" stroke-width="6"/>
+      <circle cx="46" cy="46" r="${R}" fill="none" stroke="${colour}" stroke-width="6"
               stroke-linecap="round" stroke-dasharray="${C}"
               stroke-dashoffset="${C * (1 - frac)}"/>
     </svg>
     <div class="dial__val">
       <div class="dial__num">${res.score.toFixed(1)}</div>
-      <div class="dial__den">out of 10</div>
     </div>`;
 
   const body = el('div', 'hero__body');
@@ -130,8 +127,8 @@ export function renderStats(grid, { res, hour, units, tideRegime }) {
 
 function tidePct(norm) {
   if (!Number.isFinite(norm)) return '--';
-  if (norm > 0.85) return 'High';
-  if (norm < 0.15) return 'Low';
+  if (norm >= 0.8) return 'High';
+  if (norm <= 0.2) return 'Low';
   return `${Math.round(norm * 100)}%`;
 }
 
@@ -156,7 +153,8 @@ export function renderParts(list, explain, noteEl, { res, spot, craft }) {
     const track = el('div', 'part__track');
     const fill = el('div', 'part__fill');
     fill.style.width = `${clamp(val, 0, 1) * 100}%`;
-    fill.style.background = scoreColour(val * 10);
+    // Neutral: these are component scores, not a verdict on the session.
+    fill.style.background = 'var(--accent)';
     track.append(fill);
 
     row.append(track, el('div', 'part__val', `${Math.round(val * 100)}`));
@@ -270,6 +268,8 @@ export function renderTide(svg, eventsEl, noteEl, { forecast, now, units }) {
     ? `${regime.label} · ${regime.rangeM.toFixed(1)} m range` : '';
 }
 
+const sentence = (t) => t.replace(/^./, (c) => c.toUpperCase());
+
 function dayLabel(date, now) {
   const a = dayKey(date);
   const b = dayKey(now);
@@ -306,7 +306,7 @@ export function renderWindows(root, windows, { now, units, onPick }) {
     const mid = el('div');
     mid.style.minWidth = '0';
     mid.append(
-      el('div', 'window__rule', `${dayLabel(w.start, now)} · ${w.ruleLabel}`),
+      el('div', 'window__rule', `${sentence(dayLabel(w.start, now))} · ${w.ruleLabel}`),
       el('div', 'window__when', `${fmtClock(w.start)}–${fmtClock(w.end)} · ${w.spot.short}`),
       el('div', 'window__meta',
         `${fmtHeight(w.representative.faceM, units)} face · ${Math.round(w.representative.period)} s · ` +
@@ -370,8 +370,7 @@ export function renderDays(root, tableRoot, { forecast, spot, craft, scoredHours
   for (const [key, entries] of byDay) {
     const day = el('div', 'day');
     const head = el('div', 'day__head');
-    head.append(el('div', 'day__name',
-      dayLabel(entries[0].hour.time, now).replace(/^./, (c) => c.toUpperCase())));
+    head.append(el('div', 'day__name', sentence(dayLabel(entries[0].hour.time, now))));
 
     // Lead with the day's verdict so the week is scannable without reading cells.
     const best = entries.reduce((a, b) => (b.res.score > a.res.score ? b : a));
@@ -446,7 +445,7 @@ function renderTable(root, scoredHours, now, units) {
   for (const { hour, res } of rows) {
     const tr = el('tr');
     tr.append(
-      el('td', null, `${dayLabel(hour.time, now)} ${fmtClock(hour.time)}`),
+      el('td', null, `${sentence(dayLabel(hour.time, now))} ${fmtClock(hour.time)}`),
       el('td', null, res.score.toFixed(1)),
       el('td', null, res.rating.label),
       el('td', null, fmtHeight(res.faceM, units)),
@@ -464,12 +463,17 @@ function renderTable(root, scoredHours, now, units) {
 
 export function renderLegend(rampEl, unitEl, units) {
   rampEl.replaceChildren();
-  for (let i = 0; i < RAMP_STEPS; i++) {
+  // Named bands, not an unlabelled ramp: on a status scale the words are the
+  // key, and they double as the non-colour route to the same information.
+  for (const r of [...RATINGS].reverse()) {
+    const item = el('span', 'legend__item');
     const sw = el('span', 'legend__sw');
-    sw.style.background = `var(--ramp-${i})`;
-    rampEl.append(sw);
+    sw.style.background = `var(--score-${r.tone})`;
+    item.append(sw, el('span', null, r.label));
+    rampEl.append(item);
   }
-  unitEl.textContent = `Heights in ${units.height === 'ft' ? 'feet' : 'metres'} (breaking face)`;
+  unitEl.textContent = `Face height in ${units.height === 'ft' ? 'feet' : 'metres'}`;
+  unitEl.className = 'legend__unit';
 }
 
 // --- spot / craft selectors ------------------------------------------------
@@ -542,7 +546,7 @@ export function renderNextBest(root, best, { now, current, onPick }) {
   body.append(
     el('div', 'nextbest__label', 'Best in your free hours'),
     el('div', 'nextbest__when',
-      `${dayLabel(best.start, now)} ${fmtClock(best.start)} · ${best.spot.short}`),
+      `${sentence(dayLabel(best.start, now))} ${fmtClock(best.start)} · ${best.spot.short}`),
   );
 
   btn.append(pill, body, iconEl('arrowRight', 'nextbest__arrow'));
