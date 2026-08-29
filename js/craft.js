@@ -27,7 +27,6 @@ export const CRAFT = [
     id: 'surf-kayak',
     name: 'Surf kayak',
     short: 'Surf kayak',
-    icon: '🛶',
     blurb: 'Planing surf kayak or waveski',
     // Catches early → low minimum. Hard to escape a big beating → modest ceiling.
     size: { a: 0.22, b: 0.6, c: 1.6, d: 2.7 },
@@ -46,7 +45,6 @@ export const CRAFT = [
     id: 'ww-kayak',
     name: 'Whitewater kayak',
     short: 'Whitewater',
-    icon: '🚣',
     blurb: 'River boat, creeker or playboat',
     size: { a: 0.18, b: 0.45, c: 1.15, d: 1.9 },
     hardMax: 1.6,
@@ -64,7 +62,6 @@ export const CRAFT = [
     id: 'board',
     name: 'Shortboard',
     short: 'Board',
-    icon: '🏄',
     blurb: 'Reference — roughly what Surfline is scoring',
     size: { a: 0.5, b: 1.0, c: 2.2, d: 3.6 },
     hardMax: 3.2,

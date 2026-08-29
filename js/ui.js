@@ -4,24 +4,29 @@
 import {
   clamp, compass, mToFt, fmtClock, fmtDuration, round, dayKey,
 } from './util.js';
-import { FACE_FACTOR } from './scoring.js';
+import { iconHtml } from './icons.js';
 
-// Sequential blue ramp, light → dark: magnitude of score.
-// One hue, never a rainbow — the rating word beside it carries the meaning, so
-// nothing here depends on telling red from green.
-const SEQ = ['#cde2fb', '#9ec5f4', '#6da7ec', '#3987e5', '#256abf', '#184f95', '#0d366b'];
+const RAMP_STEPS = 7;
 
-/** Score 0..10 → a ramp step. Low scores use the pale end so they recede. */
+/**
+ * Score 0..10 → a step on the sequential ramp.
+ *
+ * Returns a CSS variable rather than a hex value so the ramp can invert between
+ * themes: on a dark surface the low end must be the dark step (receding into
+ * the background) and the high end the bright one, and on a light surface the
+ * reverse. Baking hex in here made every flat day louder than every good one.
+ */
 export function scoreColour(score) {
   if (!Number.isFinite(score)) return 'var(--surface-3)';
-  const t = clamp(score / 10, 0, 1);
-  // Invert: a high score should be the saturated, dark end of the ramp.
-  return SEQ[Math.min(SEQ.length - 1, Math.round(t * (SEQ.length - 1)))];
+  const i = Math.min(RAMP_STEPS - 1, Math.round(clamp(score / 10, 0, 1) * (RAMP_STEPS - 1)));
+  return `var(--ramp-${i})`;
 }
 
-/** Ink that stays legible on a given ramp step. */
-export function inkOn(score) {
-  return Number.isFinite(score) && score >= 4.3 ? '#ffffff' : '#0b0b0b';
+/** Ink that stays legible on that step, in either theme. */
+export function scoreInk(score) {
+  if (!Number.isFinite(score)) return 'var(--text-primary)';
+  const i = Math.min(RAMP_STEPS - 1, Math.round(clamp(score / 10, 0, 1) * (RAMP_STEPS - 1)));
+  return `var(--ramp-${i}-ink)`;
 }
 
 const el = (tag, cls, text) => {
@@ -31,9 +36,13 @@ const el = (tag, cls, text) => {
   return n;
 };
 
-const FLAG_ICONS = {
-  critical: '⛔', serious: '⚠️', warning: '⚠️', info: 'ℹ️', good: '✓',
-};
+function iconEl(name, cls) {
+  const span = document.createElement('span');
+  span.innerHTML = iconHtml(name);
+  const node = span.firstElementChild;
+  if (cls) node.setAttribute('class', cls);
+  return node;
+}
 
 // --- unit helpers ----------------------------------------------------------
 
@@ -57,14 +66,14 @@ export function renderHero(root, { res, spot, craft, hour, verdict, units }) {
 
   // Dial: a meter, so the track is a lighter step of the same ramp.
   const dial = el('div', 'dial');
-  const R = 50;
+  const R = 41;
   const C = 2 * Math.PI * R;
   const frac = clamp(res.score / 10, 0, 1);
   const colour = scoreColour(res.score);
   dial.innerHTML = `
-    <svg width="116" height="116" viewBox="0 0 116 116" aria-hidden="true">
-      <circle cx="58" cy="58" r="${R}" fill="none" stroke="var(--surface-3)" stroke-width="9"/>
-      <circle cx="58" cy="58" r="${R}" fill="none" stroke="${colour}" stroke-width="9"
+    <svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true">
+      <circle cx="48" cy="48" r="${R}" fill="none" stroke="var(--surface-3)" stroke-width="8"/>
+      <circle cx="48" cy="48" r="${R}" fill="none" stroke="${colour}" stroke-width="8"
               stroke-linecap="round" stroke-dasharray="${C}"
               stroke-dashoffset="${C * (1 - frac)}"/>
     </svg>
@@ -78,7 +87,7 @@ export function renderHero(root, { res, spot, craft, hour, verdict, units }) {
     el('div', 'hero__rating', res.rating.label),
     el('div', 'hero__verdict', verdict),
     el('div', 'hero__where',
-      `${craft.icon} ${craft.name} · ${spot.name} · ${hour ? fmtClock(hour.time) : 'now'}`),
+      `${craft.short} · ${spot.short} · ${hour ? fmtClock(hour.time) : 'now'}`),
   );
 
   wrap.append(dial, body);
@@ -93,37 +102,30 @@ export function renderStats(grid, { res, hour, units, tideRegime }) {
   const stat = (label, value, sub) => {
     const n = el('div', 'stat');
     n.append(el('div', 'stat__label', label), el('div', 'stat__value', value));
-    if (sub) n.append(el('div', 'stat__sub', sub));
+    n.append(el('div', 'stat__sub', sub || '\u00a0'));
     return n;
   };
 
-  const period = Number.isFinite(res.period) ? `${Math.round(res.period)} s` : '--';
-  const swellTxt = Number.isFinite(res.swellDir)
-    ? `${compass(res.swellDir)} ${Math.round(res.swellDir)}°` : '--';
+  const period = Number.isFinite(res.period) ? `${Math.round(res.period)}s` : '--';
+  const swellTxt = Number.isFinite(res.swellDir) ? compass(res.swellDir) : '--';
 
+  // Wind: the relation matters more than the gust, so it gets the subtitle.
   const windSub = res.wind.relation === 'glassy'
     ? 'glassy'
-    : `${compass(hour.windDirection)} · ${res.wind.relation}`;
+    : `${compass(hour.windDirection)} ${res.wind.relation}`;
 
-  const gust = Number.isFinite(hour.windGustKn) ? `gusts ${fmtWind(hour.windGustKn, units)}` : null;
+  const tideSub = Number.isFinite(hour.tideNorm) ? (hour.tideState || '') : '';
 
-  const tideSub = Number.isFinite(hour.tideNorm)
-    ? `${hour.tideState}${tideRegime?.label && tideRegime.label !== 'unknown' ? ` · ${tideRegime.label}` : ''}`
-    : '';
-
+  // Ordered by how much each one decides whether you go.
   grid.append(
-    stat('Surf', fmtHeight(res.faceM, units), `face · ${fmtHeight(res.hs, units)} swell`),
-    stat('Period', period, swellTxt),
-    stat('Wind', fmtWind(hour.windKn, units), gust || windSub),
+    stat('Surf', fmtHeight(res.faceM, units), 'face'),
+    stat('Period', period, `${swellTxt} swell`),
+    stat('Wind', fmtWind(hour.windKn, units), windSub),
     stat('Tide', tidePct(hour.tideNorm), tideSub),
-    stat('Air', fmtTemp(hour.airTemp), Number.isFinite(hour.apparentTemp) ? `feels ${fmtTemp(hour.apparentTemp)}` : ''),
     stat('Sea', fmtTemp(hour.seaTemp), 'water'),
+    stat('Air', fmtTemp(hour.airTemp),
+      Number.isFinite(hour.apparentTemp) ? `feels ${fmtTemp(hour.apparentTemp)}` : ''),
   );
-
-  if (res.wind.relation !== 'glassy' && gust) {
-    // The relation is the thing you actually care about — don't lose it to gusts.
-    grid.children[2].append(el('div', 'stat__sub', windSub));
-  }
 }
 
 function tidePct(norm) {
@@ -139,12 +141,16 @@ const PART_LABELS = {
   size: 'Size', power: 'Power', wind: 'Wind', direction: 'Direction', tide: 'Tide',
 };
 
-export function renderParts(list, explain, { res, spot, craft }) {
+export function renderParts(list, explain, noteEl, { res, spot, craft }) {
   list.replaceChildren();
-  const entries = Object.entries(res.parts).sort((a, b) => b[1] - a[1]);
+
+  // Weakest first. The limiting factor is the only actionable part of this
+  // card — sorting best-first buried it below the fold.
+  const entries = Object.entries(res.parts).sort((a, b) => a[1] - b[1]);
+  const limiting = entries[0];
 
   for (const [key, val] of entries) {
-    const row = el('div', 'part');
+    const row = el('div', `part${key === limiting[0] ? ' part--limiting' : ''}`);
     row.append(el('div', 'part__label', PART_LABELS[key] || key));
 
     const track = el('div', 'part__track');
@@ -157,10 +163,16 @@ export function renderParts(list, explain, { res, spot, craft }) {
     list.append(row);
   }
 
+  if (noteEl) {
+    noteEl.textContent = limiting[1] > 0.9
+      ? 'nothing much'
+      : `mostly ${(PART_LABELS[limiting[0]] || limiting[0]).toLowerCase()}`;
+  }
+
   const bits = [];
-  if (spot.shelter < 0.98) {
-    bits.push(`${spot.short} sits behind the headland, so it sees about ` +
-      `${Math.round(res.exposure * 100)}% of the open-coast swell (${fmtHeight(res.openCoastHs, { height: 'm' })} out at sea today).`);
+  if (spot.shelter < 0.98 || res.exposure < 0.9) {
+    bits.push(`${spot.short} sees about ${Math.round(res.exposure * 100)}% of the open-coast swell `
+      + `(${fmtHeight(res.openCoastHs, { height: 'm' })} out at sea) once the headland and the swell angle have taken their cut.`);
   }
   bits.push(`Scored for a ${craft.name.toLowerCase()} — ${craft.blurb.toLowerCase()}.`);
   explain.textContent = bits.join(' ');
@@ -172,7 +184,7 @@ export function renderFlags(root, flags) {
   root.replaceChildren();
   if (!flags.length) {
     const ok = el('div', 'flag flag--good');
-    ok.append(el('span', 'flag__icon', '✓'), el('span', null, 'Nothing out of the ordinary flagged.'));
+    ok.append(iconEl('good'), el('span', null, 'Nothing out of the ordinary flagged.'));
     root.append(ok);
     return;
   }
@@ -180,7 +192,7 @@ export function renderFlags(root, flags) {
   for (const f of [...flags].sort((a, b) => (order[a.level] ?? 9) - (order[b.level] ?? 9))) {
     const n = el('div', `flag flag--${f.level}`);
     // Icon + text, never colour alone.
-    n.append(el('span', 'flag__icon', FLAG_ICONS[f.level] || 'ℹ️'), el('span', null, f.text));
+    n.append(iconEl(f.level), el('span', null, f.text));
     root.append(n);
   }
 }
@@ -274,7 +286,7 @@ export function renderWindows(root, windows, { now, units, onPick }) {
 
   if (!windows.length) {
     const e = el('div', 'empty');
-    e.append(el('span', 'empty__big', '🤷'));
+    e.append(iconEl('shrug'));
     e.append(el('div', null, 'Nothing worth paddling in your free hours over the next week.'));
     e.append(el('div', 'muted',
       'Widen your session times or drop the minimum score in Settings if you want to see the marginal ones.'));
@@ -289,7 +301,7 @@ export function renderWindows(root, windows, { now, units, onPick }) {
     const top = el('div', 'window__top');
     const pill = el('div', 'window__pill', w.mean.toFixed(1));
     pill.style.background = scoreColour(w.mean);
-    pill.style.color = inkOn(w.mean);
+    pill.style.color = scoreInk(w.mean);
 
     const mid = el('div');
     mid.style.minWidth = '0';
@@ -303,11 +315,11 @@ export function renderWindows(root, windows, { now, units, onPick }) {
 
     top.append(pill, mid);
     btn.append(top);
-    btn.append(el('div', 'window__verdict', w.verdict));
+    btn.append(el('div', 'window__verdict', w.note));
 
     if (w.constrained) {
       const c = el('div', 'window__constrained');
-      c.append(el('span', null, '📅'), el('span', null, 'Trimmed to fit around your calendar'));
+      c.append(iconEl('calendar'), el('span', null, 'Trimmed to fit around your calendar'));
       btn.append(c);
     }
 
@@ -318,47 +330,100 @@ export function renderWindows(root, windows, { now, units, onPick }) {
 
 // --- hourly forecast strip -------------------------------------------------
 
+/**
+ * Determine the hours worth showing. The old strip ran 00:00–23:00 and
+ * scrolled, so you met six hours of darkness before reaching anything you'd
+ * paddle in, and no two days lined up. Clipping to daylight gets a whole day
+ * onto the screen at once, which makes the week comparable at a glance.
+ */
+function daylightRange(forecast) {
+  let from = 24;
+  let to = 0;
+  for (const day of forecast.daily.values()) {
+    if (day.sunrise) from = Math.min(from, day.sunrise.getHours());
+    if (day.sunset) to = Math.max(to, day.sunset.getHours() + 1);
+  }
+  if (from > to) return { from: 6, to: 21 };
+  // A shoulder either side: first and last light are rideable.
+  return { from: clamp(from - 1, 0, 23), to: clamp(to + 1, 1, 24) };
+}
+
 export function renderDays(root, tableRoot, { forecast, spot, craft, scoredHours, now, units, onPick }) {
   root.replaceChildren();
 
+  const { from, to } = daylightRange(forecast);
+  const cutoff = new Date(+now - 3600e3);
+
   const byDay = new Map();
   for (const entry of scoredHours) {
-    if (entry.hour.time < new Date(+now - 3600e3)) continue;
-    const k = dayKey(entry.hour.time);
+    const t = entry.hour.time;
+    if (t < cutoff) continue;
+    const h = t.getHours();
+    if (h < from || h >= to) continue;
+    const k = dayKey(t);
     if (!byDay.has(k)) byDay.set(k, []);
     byDay.get(k).push(entry);
   }
 
+  const span = to - from;
+
   for (const [key, entries] of byDay) {
     const day = el('div', 'day');
     const head = el('div', 'day__head');
-    head.append(el('div', 'day__name', dayLabel(entries[0].hour.time, now).replace(/^./, (c) => c.toUpperCase())));
+    head.append(el('div', 'day__name',
+      dayLabel(entries[0].hour.time, now).replace(/^./, (c) => c.toUpperCase())));
+
+    // Lead with the day's verdict so the week is scannable without reading cells.
+    const best = entries.reduce((a, b) => (b.res.score > a.res.score ? b : a));
+    head.append(el('div', 'day__best',
+      best.res.score >= 4
+        ? `best ${best.res.score.toFixed(1)} at ${fmtClock(best.hour.time)}`
+        : 'nothing worth it'));
 
     const meta = forecast.daily.get(key);
     if (meta?.sunrise && meta?.sunset) {
-      head.append(el('div', 'day__light', `☀ ${fmtClock(meta.sunrise)} – ${fmtClock(meta.sunset)}`));
+      const light = el('div', 'day__light');
+      light.append(iconEl('sun'), document.createTextNode(`${fmtClock(meta.sunrise)}–${fmtClock(meta.sunset)}`));
+      head.append(light);
     }
     day.append(head);
 
     const strip = el('div', 'strip');
-    for (const { hour, res } of entries) {
-      const cell = el('button', `cell${hour.daylight === false ? ' cell--dark' : ''}`);
+    // Pad partial days (today starts late) so every day's columns line up.
+    const present = new Map(entries.map((e) => [e.hour.time.getHours(), e]));
+    for (let h = from; h < to; h++) {
+      const entry = present.get(h);
+      if (!entry) {
+        const gap = el('div', 'cell');
+        gap.style.visibility = 'hidden';
+        gap.append(el('div', 'cell__bar'), el('div', 'cell__hr', ''));
+        strip.append(gap);
+        continue;
+      }
+      const { hour, res } = entry;
+      const cell = el('button', 'cell');
       cell.type = 'button';
       cell.setAttribute('aria-label',
         `${fmtClock(hour.time)}, score ${res.score.toFixed(1)} out of 10, ${res.rating.label}`);
 
       const bar = el('div', 'cell__bar');
       const fill = el('div', 'cell__fill');
-      fill.style.height = `${clamp(res.score / 10, 0.04, 1) * 100}%`;
+      fill.style.height = `${clamp(res.score / 10, 0.05, 1) * 100}%`;
       fill.style.background = scoreColour(res.score);
       bar.append(fill);
 
-      cell.append(bar, el('div', 'cell__hr', String(hour.time.getHours()).padStart(2, '0')));
+      // Label every third hour — one label per column is unreadable at this width.
+      const showLabel = h % 3 === 0 || span <= 8;
+      cell.append(bar, el('div', 'cell__hr', showLabel ? String(h).padStart(2, '0') : ''));
       cell.addEventListener('click', () => onPick(hour, res, cell));
       strip.append(cell);
     }
     day.append(strip);
     root.append(day);
+  }
+
+  if (!byDay.size) {
+    root.append(el('div', 'empty', 'No daylight hours left in the forecast.'));
   }
 
   renderTable(tableRoot, scoredHours, now, units);
@@ -399,9 +464,9 @@ function renderTable(root, scoredHours, now, units) {
 
 export function renderLegend(rampEl, unitEl, units) {
   rampEl.replaceChildren();
-  for (const c of SEQ) {
+  for (let i = 0; i < RAMP_STEPS; i++) {
     const sw = el('span', 'legend__sw');
-    sw.style.background = c;
+    sw.style.background = `var(--ramp-${i})`;
     rampEl.append(sw);
   }
   unitEl.textContent = `Heights in ${units.height === 'ft' ? 'feet' : 'metres'} (breaking face)`;
@@ -409,20 +474,80 @@ export function renderLegend(rampEl, unitEl, units) {
 
 // --- spot / craft selectors ------------------------------------------------
 
-export function renderSegs(root, items, activeId, onPick, scores) {
+/** Craft picker: a segmented control, neutral so it never outshouts the data. */
+export function renderCraft(root, items, activeId, onPick, scores) {
   root.replaceChildren();
   for (const it of items) {
-    const b = el('button', 'seg');
+    const b = el('button');
     b.type = 'button';
     b.setAttribute('aria-pressed', String(it.id === activeId));
-    b.append(document.createTextNode(`${it.icon ? `${it.icon} ` : ''}${it.short || it.name}`));
+    b.append(el('span', null, it.short || it.name));
+    const sc = scores?.get(it.id);
+    if (Number.isFinite(sc)) b.append(el('span', 'seg__score', sc.toFixed(1)));
+    b.addEventListener('click', () => onPick(it.id));
+    root.append(b);
+  }
+}
 
-    const s = scores?.get(it.id);
-    if (Number.isFinite(s)) b.append(el('span', 'seg__score', s.toFixed(1)));
+/**
+ * Spot picker. Each pill carries a ramp dot for its current score, so you can
+ * see which beach is on without switching to it.
+ */
+export function renderSpots(root, items, activeId, onPick, scores) {
+  root.replaceChildren();
+  for (const it of items) {
+    const b = el('button', 'spot');
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(it.id === activeId));
+
+    const sc = scores?.get(it.id);
+    if (Number.isFinite(sc)) {
+      const dot = el('span', 'spot__dot');
+      dot.style.background = scoreColour(sc);
+      b.append(dot);
+    }
+    b.append(document.createTextNode(it.short || it.name));
+    if (Number.isFinite(sc)) b.append(el('span', 'spot__score', sc.toFixed(1)));
 
     b.addEventListener('click', () => onPick(it.id));
     root.append(b);
   }
+}
+
+/**
+ * The "or should I wait?" line. Without it the highest-value fact in the app —
+ * that Thursday dawn is a 9 and right now is a 5 — sits behind a tab.
+ */
+export function renderNextBest(root, best, { now, current, onPick }) {
+  root.replaceChildren();
+  if (!best) return;
+
+  // Only worth interrupting for if it is meaningfully better than now.
+  if (Number.isFinite(current) && best.mean < current + 0.8) {
+    const note = el('div', 'hero__where');
+    note.style.marginTop = '12px';
+    note.textContent = 'Nothing materially better in your free hours this week.';
+    root.append(note);
+    return;
+  }
+
+  const btn = el('button', 'nextbest');
+  btn.type = 'button';
+
+  const pill = el('div', 'nextbest__pill', best.mean.toFixed(1));
+  pill.style.background = scoreColour(best.mean);
+  pill.style.color = scoreInk(best.mean);
+
+  const body = el('div', 'nextbest__body');
+  body.append(
+    el('div', 'nextbest__label', 'Best in your free hours'),
+    el('div', 'nextbest__when',
+      `${dayLabel(best.start, now)} ${fmtClock(best.start)} · ${best.spot.short}`),
+  );
+
+  btn.append(pill, body, iconEl('arrowRight', 'nextbest__arrow'));
+  btn.addEventListener('click', () => onPick(best));
+  root.append(btn);
 }
 
 // --- banners & tooltip -----------------------------------------------------
@@ -431,7 +556,7 @@ export function renderBanners(root, banners) {
   root.replaceChildren();
   for (const b of banners) {
     const n = el('div', 'banner');
-    n.append(el('span', null, b.icon || 'ℹ️'), el('span', null, b.text));
+    n.append(iconEl(b.icon || 'info'), el('span', null, b.text));
     root.append(n);
   }
 }

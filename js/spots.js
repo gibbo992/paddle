@@ -80,6 +80,22 @@ export const SPOTS = [
       'but prefers more water on it.',
   },
   {
+    id: 'seaton-sluice',
+    name: 'Seaton Sluice',
+    short: 'Seaton Sluice',
+    lat: 55.0840,
+    lon: -1.4740,
+    facing: 80,
+    swellWindow: { from: 350, to: 130, best0: 40, best1: 100 },
+    shelter: 0.93,
+    tide: { ok0: 0.05, best0: 0.2, best1: 0.7, ok1: 0.95 },
+    dirWeight: 1.2,
+    tideWeight: 1.0,
+    notes: 'Beach and harbour mouth between Whitley and Blyth. Collywell Bay end is ' +
+      'sheltered and small; the open sand to the south takes more swell. Works ' +
+      'best with the tide off the top.',
+  },
+  {
     id: 'blyth',
     name: 'Blyth South Beach',
     short: 'Blyth',

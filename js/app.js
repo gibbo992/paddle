@@ -9,7 +9,8 @@ import { findBestWindows } from './windows.js';
 import { loadSettings, saveSettings, resetSettings, DEFAULT_SETTINGS } from './store.js';
 import * as cal from './calendar.js';
 import * as ui from './ui.js';
-import { fmtClock, dayKey } from './util.js';
+import { fmtClock } from './util.js';
+import { iconHtml } from './icons.js';
 import { renderSettings } from './settings-ui.js';
 import { demoForecast, isDemo } from './demo.js';
 
@@ -130,17 +131,19 @@ function render() {
     for (const c of CRAFT) if (h) craftScores.set(c.id, scoreHour(h, spot, c).score);
   }
 
-  ui.renderSegs($('craftRow'), CRAFT, craft.id, (id) => {
+  ui.renderCraft($('craftRow'), CRAFT, craft.id, (id) => {
     state.settings.craftId = id; persist(); render();
   }, craftScores);
 
   const visibleSpots = SPOTS.filter((s) => state.settings.enabledSpots.includes(s.id) || s.id === spot.id);
-  ui.renderSegs($('spotRow'), visibleSpots, spot.id, (id) => {
+  const pickSpot = (id) => {
     state.settings.spotId = id;
     state.selected = null;
     persist();
     if (!state.forecasts.has(id)) loadAll(); else render();
-  }, spotScores);
+  };
+  ui.renderSpots($('spotRow'), visibleSpots, spot.id, pickSpot, spotScores);
+  ui.renderSpots($('spotRowForecast'), visibleSpots, spot.id, pickSpot, spotScores);
 
   $('brandSub').textContent = spot.name;
 
@@ -148,9 +151,10 @@ function render() {
 
   if (!fc) {
     $('heroCard').innerHTML = state.loading
-      ? '<div class="skeleton" style="height:110px"></div>'
-      : `<div class="empty"><span class="empty__big">📡</span><div>Couldn't load the forecast.</div>
-         <div class="muted">${state.error ? escapeHtml(state.error.message) : ''}</div></div>`;
+      ? '<div class="skeleton" style="height:96px"></div>'
+      : `<div class="empty">${iconHtml('offline')}<div>Couldn't load the forecast.</div>
+         <div class="muted">${escapeHtml(state.error?.message || '')}</div></div>`;
+    $('nextBest').replaceChildren();
     return;
   }
 
@@ -161,10 +165,32 @@ function render() {
   const res = scoreHour(hour, spot, craft);
   const regime = fc.tideRegime?.forDate(hour.time);
 
+  // Windows first — the hero needs the best one to answer "or should I wait?".
+  const spots = SPOTS.filter((s) => state.settings.enabledSpots.includes(s.id) && state.forecasts.has(s.id));
+  const windows = findBestWindows(state.forecasts, spots.length ? spots : [spot], craft, state.settings, {
+    busy: state.busy, now, limit: 10,
+  });
+
+  const jumpTo = (w) => {
+    state.settings.spotId = w.spot.id;
+    state.selected = +w.peakAt;
+    persist();
+    setView('now');
+  };
+
   // --- Now
   ui.renderHero($('heroCard'), {
     res, spot, craft, hour, units: state.settings.units,
-    verdict: verdictFor(res, spot, craft),
+    verdict: verdictFor(res, spot, craft, { future: hour.time > new Date(+now + 60 * 60000) }),
+  });
+
+  // Only offer a future window — "go now" is what the hero already says.
+  const upcoming = windows.filter((w) => w.start > new Date(+now + 45 * 60000));
+  const nextBest = upcoming.reduce((a, b) => (!a || b.mean > a.mean ? b : a), null);
+  ui.renderNextBest($('nextBest'), nextBest, {
+    now,
+    current: state.selected ? null : res.score,
+    onPick: jumpTo,
   });
 
   $('statsCard').hidden = false;
@@ -172,7 +198,7 @@ function render() {
   $('statsNote').textContent = state.selected ? `at ${fmtClock(hour.time)}` : 'now';
 
   $('partsCard').hidden = false;
-  ui.renderParts($('partsList'), $('partsExplain'), { res, spot, craft });
+  ui.renderParts($('partsList'), $('partsExplain'), $('partsLimiting'), { res, spot, craft });
 
   $('flagsCard').hidden = false;
   ui.renderFlags($('flagsList'), safetyFlags({ scored: res, hour, spot, craft, regime }));
@@ -186,19 +212,8 @@ function render() {
     { forecast: fc, now: hour.time, units: state.settings.units });
 
   // --- Best windows
-  const spots = SPOTS.filter((s) => state.settings.enabledSpots.includes(s.id) && state.forecasts.has(s.id));
-  const windows = findBestWindows(state.forecasts, spots.length ? spots : [spot], craft, state.settings, {
-    busy: state.busy, now, limit: 10,
-  });
-
   ui.renderWindows($('windowsList'), windows, {
-    now, units: state.settings.units,
-    onPick: (w) => {
-      state.settings.spotId = w.spot.id;
-      state.selected = +w.peakAt;
-      persist();
-      setView('now');
-    },
+    now, units: state.settings.units, onPick: jumpTo,
   });
 
   $('windowsNote').textContent = spots.length > 1 ? `best of ${spots.length} spots` : spot.short;
@@ -216,25 +231,25 @@ function render() {
       render();
     },
   });
-  $('forecastNote').textContent = `${spot.short} · ${craft.short}`;
+  $('forecastNote').textContent = craft.name;
   ui.renderLegend($('legendRamp'), $('legendUnit'), state.settings.units);
 }
 
 function renderBanners(fc) {
   const banners = [];
   if (state.error && fc) {
-    banners.push({ icon: '📡', text: `Showing saved data — ${state.error.message}` });
+    banners.push({ icon: 'offline', text: `Showing saved data — ${state.error.message}` });
   }
   if (fc?.stale || (fc && Date.now() - fc.fetchedAt > 6 * 3600e3)) {
     const age = Math.round((Date.now() - fc.fetchedAt) / 3600e3);
-    banners.push({ icon: '🕒', text: `Forecast is ${age}h old. Pull to refresh when you have signal.` });
+    banners.push({ icon: 'info', text: `Forecast is ${age}h old. Pull to refresh when you have signal.` });
   }
   if (isDemo()) {
-    banners.push({ icon: '🧪', text: 'Demo mode — made-up data, not a real forecast. Drop ?demo=1 for the live one.' });
+    banners.push({ icon: 'flask', text: 'Demo mode — made-up data, not a real forecast. Drop ?demo=1 for the live one.' });
   }
   if (state.selected) {
     const t = new Date(state.selected);
-    banners.push({ icon: '👆', text: `Showing ${fmtClock(t)}. Tap here to go back to now.`, clear: true });
+    banners.push({ icon: 'hand', text: `Showing ${fmtClock(t)}. Tap here to go back to now.`, clear: true });
   }
   ui.renderBanners($('banners'), banners);
   if (state.selected) {
@@ -323,7 +338,16 @@ function closeSettings() { $('settingsSheet').hidden = true; }
 
 // --- boot ------------------------------------------------------------------
 
+function paintIcons() {
+  for (const node of document.querySelectorAll('[data-icon]')) {
+    const label = node.textContent.trim();
+    node.innerHTML = iconHtml(node.dataset.icon);
+    if (label) node.append(document.createTextNode(label));
+  }
+}
+
 function wire() {
+  paintIcons();
   for (const b of document.querySelectorAll('.nav__btn')) {
     b.addEventListener('click', () => setView(b.dataset.view));
   }

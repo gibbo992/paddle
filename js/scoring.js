@@ -229,23 +229,36 @@ export function scoreHour(h, spot, craft) {
   };
 }
 
-/** One-line verdict, written the way you'd say it to someone in the car park. */
-export function verdictFor(res, spot, craft) {
-  const p = res.parts;
+const WEAKEST_LABEL = {
+  size: 'too small',
+  power: 'gutless and shapeless',
+  direction: 'the swell is out of the window',
+  tide: 'the tide is wrong for it',
+};
+
+/** The weakest component, and a phrase for it. */
+export function limitingFactor(res) {
+  const [key, val] = Object.entries(res.parts).sort((a, b) => a[1] - b[1])[0];
+  const label = key === 'wind' ? `the wind is ${res.wind.relation}` : WEAKEST_LABEL[key];
+  return { key, val, label };
+}
+
+/**
+ * One-line verdict, written the way you'd say it in the car park.
+ * `future` matters: "go now" is nonsense about Thursday dawn.
+ */
+export function verdictFor(res, spot, craft, { future = false } = {}) {
   if (res.flags.some((f) => f.code === 'flat')) return `Flat at ${spot.short}. Nothing doing.`;
   if (res.flags.some((f) => f.code === 'too-big')) return craft.tooBigMsg;
 
-  const weakest = Object.entries(p).sort((a, b) => a[1] - b[1])[0];
-  const label = {
-    size: 'too small',
-    power: 'gutless and shapeless',
-    wind: `wind is ${res.wind.relation}`,
-    direction: 'swell is out of the window',
-    tide: 'wrong tide',
-  }[weakest[0]];
+  const { label } = limitingFactor(res);
 
-  if (res.score >= 8.5) return `As good as it gets at ${spot.short} — go now.`;
-  if (res.score >= 7) return `Properly worth the drive.`;
+  if (res.score >= 8.5) {
+    return future
+      ? `About as good as ${spot.short} gets. Book it off.`
+      : `As good as it gets at ${spot.short} — go now.`;
+  }
+  if (res.score >= 7) return future ? 'Properly worth the drive.' : 'Properly worth it — get down there.';
   if (res.score >= 5.5) return `Rideable and worth a go — ${label}, but nothing fatal.`;
   if (res.score >= 4) return `Marginal. Only if you're keen — ${label}.`;
   return `Not worth it — ${label}.`;

@@ -9,7 +9,7 @@ const KEY = 'ksc:settings:v1';
 export const DEFAULT_SETTINGS = {
   spotId: DEFAULT_SPOT_ID,
   craftId: DEFAULT_CRAFT_ID,
-  enabledSpots: ['cullercoats', 'longsands', 'kingedwards', 'whitley', 'blyth'],
+  enabledSpots: ['cullercoats', 'longsands', 'kingedwards', 'whitley', 'seaton-sluice', 'blyth'],
 
   units: { height: 'ft', wind: 'kn' },
 

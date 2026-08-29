@@ -24,11 +24,10 @@
       <small id="brandSub">Cullercoats &amp; the Tyne coast</small>
     </div>
     <div class="topbar__spacer"></div>
-    <button class="iconbtn" id="refreshBtn" title="Refresh forecast" aria-label="Refresh forecast">↻</button>
-    <button class="iconbtn" id="settingsBtn" title="Settings" aria-label="Settings">⚙</button>
+    <button class="iconbtn" id="refreshBtn" title="Refresh forecast" aria-label="Refresh forecast" data-icon="refresh"></button>
+    <button class="iconbtn" id="settingsBtn" title="Settings" aria-label="Settings" data-icon="settings"></button>
   </div>
-  <div class="segrow" id="craftRow" role="group" aria-label="Craft"></div>
-  <div class="segrow" id="spotRow" role="group" aria-label="Spot"></div>
+  <div class="segmented" id="craftRow" role="group" aria-label="Craft"></div>
 </header>
 
 <main class="wrap">
@@ -36,8 +35,11 @@
 
   <!-- ---------------- NOW ---------------- -->
   <section class="view" id="view-now">
-    <div class="card" id="heroCard">
-      <div class="skeleton" style="height:110px"></div>
+    <div class="spotrow" id="spotRow" role="group" aria-label="Spot"></div>
+
+    <div class="card">
+      <div id="heroCard"><div class="skeleton" style="height:96px"></div></div>
+      <div id="nextBest"></div>
     </div>
 
     <div class="card" id="statsCard" hidden>
@@ -46,7 +48,10 @@
     </div>
 
     <div class="card" id="partsCard" hidden>
-      <div class="card__head"><h2 class="card__title">What's driving the score</h2></div>
+      <div class="card__head">
+        <h2 class="card__title">What's holding it back</h2>
+        <span class="card__note" id="partsLimiting"></span>
+      </div>
       <div class="parts" id="partsList"></div>
       <p class="muted" id="partsExplain" style="margin-top:12px"></p>
     </div>
@@ -94,6 +99,7 @@
         <h2 class="card__title">Next 7 days</h2>
         <span class="card__note" id="forecastNote"></span>
       </div>
+      <div class="spotrow" id="spotRowForecast" role="group" aria-label="Spot"></div>
       <div id="days"><div class="skeleton" style="height:80px"></div></div>
       <div class="legend">
         <span>Worse</span>
@@ -110,9 +116,9 @@
 </main>
 
 <nav class="nav" role="tablist" aria-label="Views">
-  <button class="nav__btn" data-view="now" aria-current="page"><span class="nav__ico">🌊</span>Now</button>
-  <button class="nav__btn" data-view="windows"><span class="nav__ico">📅</span>Best times</button>
-  <button class="nav__btn" data-view="forecast"><span class="nav__ico">📈</span>Forecast</button>
+  <button class="nav__btn" data-view="now" aria-current="page" data-icon="wave">Now</button>
+  <button class="nav__btn" data-view="windows" data-icon="calendar">Best times</button>
+  <button class="nav__btn" data-view="forecast" data-icon="chart">Forecast</button>
 </nav>
 
 <!-- ---------------- SETTINGS SHEET ---------------- -->
@@ -122,7 +128,7 @@
     <div class="sheet__head">
       <h2 style="font-size:19px">Settings</h2>
       <div class="topbar__spacer"></div>
-      <button class="iconbtn" id="closeSettings" aria-label="Close settings">✕</button>
+      <button class="iconbtn" id="closeSettings" aria-label="Close settings" data-icon="close"></button>
     </div>
     <div id="settingsBody"></div>
   </div>

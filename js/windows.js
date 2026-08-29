@@ -2,7 +2,7 @@
 // daylight, subtract what the calendar says you're busy with, then score what
 // is left and rank it across every spot you have switched on.
 
-import { scoreHour, verdictFor } from './scoring.js';
+import { scoreHour, limitingFactor } from './scoring.js';
 import { parseHHMM, dayKey, fmtDuration } from './util.js';
 
 const MIN = 60 * 1000;
@@ -159,8 +159,33 @@ export function bestWindowIn(piece, forecast, spot, craft, settings) {
     representative: peakEntry?.res ?? window[0].res,
     hour: peakEntry?.h ?? window[0].h,
     hours: window,
-    verdict: verdictFor(peakEntry?.res ?? window[0].res, spot, craft),
+    note: sessionNote(peakEntry?.res ?? window[0].res, craft),
   };
+}
+
+/**
+ * What to say about one session in a ranked list. A generic "go now" repeated
+ * down ten rows is filler; this says what is actually notable about each.
+ */
+function sessionNote(res, craft) {
+  const serious = res.flags.find((f) => f.level === 'critical' || f.level === 'serious');
+  if (serious) return serious.text;
+
+  const { val, label } = limitingFactor(res);
+  if (res.score < 4) return `Not much in it — ${label}.`;
+  if (val < 0.55) return `Worth a go, but ${label}.`;
+  if (val < 0.8) return `Solid, though ${label}.`;
+
+  // Nothing is against it — so say what actually stands out. A stock
+  // "nothing against it" repeated down ten rows tells you nothing.
+  if (res.wind.relation === 'glassy') return 'Glassy — not a breath on it.';
+  if (res.period >= 11) return 'Long-period groundswell, and clean with it.';
+  if (res.wind.relation === 'offshore' && -res.wind.onshoreKn >= 8) {
+    return 'Groomed by the offshore — clean faces to work with.';
+  }
+  if (craft.id === 'ww-kayak') return 'Short, punchy and forgiving — good river-boat surf.';
+  if (res.parts.size > 0.95) return 'Bang on size for the boat.';
+  return 'Nothing against it the whole way through.';
 }
 
 /**
