@@ -6,9 +6,13 @@
 // A 2 m swell with a perfect period arriving from the south-east is still
 // nothing at Cullercoats, and an arithmetic mean would call that a 6/10.
 
-import { clamp, trapezoid, angleDiff, arcDistance, inArc, mToFt, kmhToKn } from './util.js';
+import { clamp, trapezoid, bandScore, angleDiff, arcDistance, inArc, mToFt } from './util.js';
 
 const FLOOR = 0.02;          // keeps ln() finite
+
+// A perfect 10 should be a thing you remember, not a Tuesday. Everything ideal
+// at once lands around 9.6, leaving the top of the scale genuinely rare.
+const MAX_SCORE = 9.7;
 export const FACE_FACTOR = 1.4; // Hs → breaking face height, roughly
 
 export const RATINGS = [
@@ -72,7 +76,7 @@ export function scoreWind(windKn, windFromDeg, spot, craft) {
 
   // Cross wind: chop plus weathercocking, which a long boat feels badly.
   const effCross = crossKn / craft.crossTolerance;
-  const crossScore = clamp(1 - Math.max(0, effCross - 10) / 30, 0.2, 1);
+  const crossScore = clamp(1 - Math.max(0, effCross - 6) / 28, 0.2, 1);
 
   return {
     score: clamp(onshoreScore * offshoreScore * crossScore, FLOOR, 1),
@@ -126,13 +130,15 @@ export function scoreHour(h, spot, craft) {
   const exposure = spot.shelter * clamp(dirScore, 0.02, 1) ** 0.6;
   const hs = Number.isFinite(h.waveHeight) ? h.waveHeight * exposure : NaN;
 
-  const sizeScore = trapezoid(hs, craft.size.a, craft.size.b, craft.size.c, craft.size.d);
+  const sizeScore = bandScore(hs, craft.size.a, craft.size.b, craft.size.c, craft.size.d, 0.15);
 
-  const periodScore = trapezoid(period, craft.period.a, craft.period.b, craft.period.c, craft.period.d);
+  const periodScore = bandScore(period, craft.period.a, craft.period.b, craft.period.c, craft.period.d, 0.10);
   const steep = steepness(hs, period);
   const steepScore = trapezoid(steep, craft.steepness.a, craft.steepness.b, craft.steepness.c, craft.steepness.d);
-  // Geometric mean: a wave needs both enough energy and enough shape.
-  const powerScore = Math.sqrt(Math.max(periodScore, FLOOR) * Math.max(steepScore, FLOOR));
+  // Period leads and steepness trims: the two overlap, and period is the more
+  // reliable signal. Steepness is here to separate punchy from gutless at the
+  // same period, not to halve the score on its own.
+  const powerScore = Math.max(periodScore, FLOOR) ** 0.65 * Math.max(steepScore, FLOOR) ** 0.35;
 
   const wind = scoreWind(h.windKn, h.windDirection, spot, craft);
   const tideScore = scoreTide(h.tideNorm, spot);
@@ -145,22 +151,37 @@ export function scoreHour(h, spot, craft) {
     tide: tideScore,
   };
 
+  // Two stages, because these five are not the same kind of thing.
+  //
+  // Size and power ARE the wave — they set the ceiling on how good the session
+  // can possibly be. Wind, direction and tide are permissive: they decide how
+  // much of that wave survives to the beach. A flat calm morning at perfect
+  // tide with a textbook offshore breeze is still a flat calm morning, and a
+  // flat average over all five would score it a 7 because nothing is "wrong".
   const weights = {
     size: 1.7,
     power: 1.0,
     wind: 1.5,
-    direction: spot.dirWeight,
+    direction: spot.dirWeight * 0.35,  // most of direction is already in the height
     tide: spot.tideWeight,
   };
 
-  let wsum = 0;
-  let lsum = 0;
-  for (const k of Object.keys(parts)) {
-    const w = weights[k];
-    wsum += w;
-    lsum += w * Math.log(Math.max(parts[k], FLOOR));
-  }
-  let score = Math.exp(lsum / wsum) * 10;
+  const geo = (keys) => {
+    let wsum = 0;
+    let lsum = 0;
+    for (const k of keys) {
+      wsum += weights[k];
+      lsum += weights[k] * Math.log(Math.max(parts[k], FLOOR));
+    }
+    return Math.exp(lsum / wsum);
+  };
+
+  const wave = geo(['size', 'power']);          // what the swell is offering
+  const conditions = geo(['wind', 'direction', 'tide']); // how much of it survives
+
+  // Conditions can only take away. The exponent stops a single average factor
+  // from flattening an otherwise excellent swell.
+  let score = wave * conditions ** 0.85 * MAX_SCORE;
 
   const flags = [];
 
@@ -193,6 +214,8 @@ export function scoreHour(h, spot, craft) {
     rating: ratingFor(score),
     parts,
     weights,
+    wave,
+    conditions,
     flags,
     wind,
     hs,

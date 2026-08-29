@@ -182,3 +182,46 @@ test('swell direction scoring is continuous around the window edge', () => {
   const outside = scoreSwellDirection(w.from - 1, cullercoats);
   assert.ok(Math.abs(inside - outside) < 0.15, 'no cliff at the window boundary');
 });
+
+test('the score spreads across the range instead of bunching at the top', () => {
+  // Nothing wrong is not the same as good: a calm, perfectly-timed, textbook
+  // offshore morning with no swell must not score like a real session.
+  const conditions = [
+    { waveHeight: 0.15, swellPeriod: 5 },
+    { waveHeight: 0.4, swellPeriod: 6 },
+    { waveHeight: 0.7, swellPeriod: 8 },
+    { waveHeight: 1.1, swellPeriod: 10 },
+    { waveHeight: 1.6, swellPeriod: 12 },
+    { waveHeight: 2.5, swellPeriod: 13 },
+  ];
+  const scores = conditions.map((c) =>
+    scoreHour(hour({ ...c, swellHeight: c.waveHeight, wavePeriod: c.swellPeriod }), longsands, surfKayak).score);
+
+  const excellent = scores.filter((s) => s >= 8.5).length;
+  assert.ok(excellent <= 2, `too many excellent scores: ${scores.map((s) => s.toFixed(1)).join(', ')}`);
+  assert.ok(Math.max(...scores) - Math.min(...scores) > 6, 'scores should span most of the scale');
+  assert.ok(scores.every((s) => s <= 9.7), 'nothing should hit a clean 10');
+});
+
+test('the middle of an ideal band beats its edges', () => {
+  // A flat plateau would score these identically; they are not the same day.
+  const at = (hs) => scoreHour(hour({ waveHeight: hs, swellHeight: hs, swellPeriod: 10, wavePeriod: 10 }),
+    longsands, surfKayak).score;
+  assert.ok(at(1.1) > at(0.7), 'chest high should beat knee high in a surf kayak');
+  assert.ok(at(1.1) > at(1.6), 'and beat the top of the band too');
+});
+
+test('permissive factors cannot manufacture a session out of no swell', () => {
+  // Perfect wind, perfect tide, swell dead in the window — but nothing to ride.
+  const r = scoreHour(hour({
+    waveHeight: 0.2, swellHeight: 0.2, swellPeriod: 5, wavePeriod: 5,
+    windKn: 2, tideNorm: 0.7,
+  }), cullercoats, surfKayak);
+  assert.ok(r.score < 2, `expected near-zero, got ${r.score.toFixed(1)}`);
+});
+
+test('wave and conditions stages are reported separately', () => {
+  const r = scoreHour(hour(), cullercoats, surfKayak);
+  assert.ok(r.wave > 0 && r.wave <= 1);
+  assert.ok(r.conditions > 0 && r.conditions <= 1);
+});

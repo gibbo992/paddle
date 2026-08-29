@@ -23,6 +23,23 @@ export function trapezoid(x, a, b, c, d) {
   return (d - x) / (d - c);
 }
 
+/**
+ * A trapezoid with a gentle dome over its plateau, so the middle of an ideal
+ * band beats its edges. A flat plateau makes a 0.7 m day and a 1.1 m day score
+ * identically when one is plainly better than the other; `depth` is how much
+ * the band edges give up (0.15 = 15%).
+ */
+export function bandScore(x, a, b, c, d, depth = 0.15) {
+  const base = trapezoid(x, a, b, c, d);
+  if (base <= 0) return 0;
+  const half = (c - b) / 2;
+  if (!(half > 0)) return base;
+  // Measured from the plateau centre and clamped at the plateau edge, so the
+  // dome is continuous with the ramps either side.
+  const off = Math.min(1, Math.abs(x - (b + c) / 2) / half);
+  return base * (1 - depth * off * off);
+}
+
 /** Smallest absolute separation between two compass bearings, 0..180. */
 export function angleDiff(a, b) {
   const d = Math.abs(((a - b) % 360) + 360) % 360;

@@ -136,8 +136,13 @@ export function bestWindowIn(piece, forecast, spot, craft, settings) {
   const peak = window.reduce((a, x) => Math.max(a, x.res.score), 0);
   const peakEntry = window.find((x) => x.res.score === peak);
 
-  const start = new Date(Math.max(+piece.start, +window[0].h.time));
-  const end = new Date(Math.min(+piece.end, +window[window.length - 1].h.time + 60 * MIN));
+  // Round to 5 minutes — an end time of 20:23 reads like a bug, not a forecast.
+  const round5 = (ms, dir) => {
+    const step = 5 * MIN;
+    return new Date(dir < 0 ? Math.ceil(ms / step) * step : Math.floor(ms / step) * step);
+  };
+  const start = round5(Math.max(+piece.start, +window[0].h.time), -1);
+  const end = round5(Math.min(+piece.end, +window[window.length - 1].h.time + 60 * MIN), 1);
   const durationMins = Math.round((end - start) / MIN);
   if (durationMins < settings.minSessionMins) return null;
 

@@ -35,7 +35,7 @@ export const CRAFT = [
     // Happy from short-period windswell upward.
     period: { a: 3.0, b: 5.5, c: 14, d: 20 },
     // Hs / deep-water wavelength. Likes a little steepness for the drop.
-    steepness: { a: 0.003, b: 0.008, c: 0.024, d: 0.040 },
+    steepness: { a: 0.0025, b: 0.006, c: 0.026, d: 0.042 },
     onshoreTolerance: 1.25,   // >1 = copes with more onshore slop than a board
     offshoreTolerance: 0.85,  // <1 = strong offshore hurts sooner than a board
     crossTolerance: 0.9,
@@ -53,7 +53,7 @@ export const CRAFT = [
     // Copes with the shortest, sloppiest windswell of the three.
     period: { a: 2.5, b: 4.5, c: 11, d: 16 },
     // Needs more steepness than a planing hull to get picked up at all.
-    steepness: { a: 0.005, b: 0.012, c: 0.030, d: 0.048 },
+    steepness: { a: 0.004, b: 0.010, c: 0.032, d: 0.050 },
     onshoreTolerance: 1.4,
     offshoreTolerance: 0.8,
     crossTolerance: 0.85,
@@ -69,7 +69,7 @@ export const CRAFT = [
     size: { a: 0.5, b: 1.0, c: 2.2, d: 3.6 },
     hardMax: 3.2,
     period: { a: 4.5, b: 8, c: 16, d: 22 },
-    steepness: { a: 0.002, b: 0.006, c: 0.018, d: 0.032 },
+    steepness: { a: 0.0018, b: 0.005, c: 0.019, d: 0.033 },
     onshoreTolerance: 1.0,
     offshoreTolerance: 1.0,
     crossTolerance: 1.0,
