@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kayak Surf — Cullercoats</title>
+<meta name="description" content="Surf conditions scored for a surf kayak or whitewater kayak on the Tyne &amp; Wear coast.">
+<meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f4f4f1" media="(prefers-color-scheme: light)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kayak Surf">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar__row">
+    <div class="brand">
+      Kayak Surf
+      <small id="brandSub">Cullercoats &amp; the Tyne coast</small>
+    </div>
+    <div class="topbar__spacer"></div>
+    <button class="iconbtn" id="refreshBtn" title="Refresh forecast" aria-label="Refresh forecast" data-icon="refresh"></button>
+    <button class="iconbtn" id="settingsBtn" title="Settings" aria-label="Settings" data-icon="settings"></button>
+  </div>
+  <div class="segmented" id="craftRow" role="group" aria-label="Craft"></div>
+</header>
+
+<main class="wrap">
+  <div id="banners"></div>
+
+  <!-- ---------------- NOW ---------------- -->
+  <section class="view" id="view-now">
+    <div class="spotrow" id="spotRow" role="group" aria-label="Spot"></div>
+
+    <div class="card">
+      <div id="heroCard"><div class="skeleton" style="height:96px"></div></div>
+      <div id="nextBest"></div>
+    </div>
+
+    <div class="card" id="statsCard" hidden>
+      <div class="card__head"><h2 class="card__title">Conditions</h2><span class="card__note" id="statsNote"></span></div>
+      <div class="stats" id="statsGrid"></div>
+    </div>
+
+    <div class="card" id="partsCard" hidden>
+      <div class="card__head">
+        <h2 class="card__title">What's holding it back</h2>
+        <span class="card__note" id="partsLimiting"></span>
+      </div>
+      <div class="parts" id="partsList"></div>
+      <p class="muted" id="partsExplain" style="margin-top:12px"></p>
+    </div>
+
+    <div class="card" id="flagsCard" hidden>
+      <div class="card__head"><h2 class="card__title">Worth knowing</h2></div>
+      <div id="flagsList"></div>
+    </div>
+
+    <div class="card" id="kitCard" hidden>
+      <div class="card__head"><h2 class="card__title">What to wear</h2><span class="card__note" id="kitNote"></span></div>
+      <div class="kit__suit" id="kitSuit"></div>
+      <div class="chiprow" id="kitExtras"></div>
+      <p class="muted" id="kitChill" style="margin-top:10px"></p>
+    </div>
+
+    <div class="card" id="tideCard" hidden>
+      <div class="card__head"><h2 class="card__title">Tide</h2><span class="card__note" id="tideNote"></span></div>
+      <svg class="tide" id="tideChart" role="img" aria-label="Tide height over the next 24 hours"></svg>
+      <div class="tideevents" id="tideEvents"></div>
+      <p class="muted" style="margin-top:10px">Modelled sea level, not Admiralty tide tables — good for timing a session, not for navigation.</p>
+    </div>
+  </section>
+
+  <!-- ---------------- BEST WINDOWS ---------------- -->
+  <section class="view" id="view-windows" hidden>
+    <div class="card">
+      <div class="card__head">
+        <h2 class="card__title">Best sessions</h2>
+        <span class="card__note" id="windowsNote"></span>
+      </div>
+      <div id="windowsList"><div class="skeleton" style="height:64px"></div></div>
+    </div>
+
+    <div class="card" id="calCard">
+      <div class="card__head"><h2 class="card__title">Your diary</h2></div>
+      <div id="calStatus"></div>
+    </div>
+  </section>
+
+  <!-- ---------------- FORECAST ---------------- -->
+  <section class="view" id="view-forecast" hidden>
+    <div class="card">
+      <div class="card__head">
+        <h2 class="card__title">Next 7 days</h2>
+        <span class="card__note" id="forecastNote"></span>
+      </div>
+      <div class="spotrow" id="spotRowForecast" role="group" aria-label="Spot"></div>
+      <div id="days"><div class="skeleton" style="height:80px"></div></div>
+      <div class="legend">
+        <span>Worse</span>
+        <span class="legend__ramp" id="legendRamp"></span>
+        <span>Better</span>
+        <span style="margin-left:auto" id="legendUnit"></span>
+      </div>
+      <details>
+        <summary>Show as a table</summary>
+        <div class="tablewrap" id="forecastTable"></div>
+      </details>
+    </div>
+  </section>
+</main>
+
+  <!-- ---------------- RIVERS (whitewater) ---------------- -->
+  <section class="view" id="view-rivers" hidden>
+    <div class="riverbar">
+      <div class="riverbar__body">
+        <div class="riverbar__title">RiverPredictor</div>
+        <div class="riverbar__host" id="riverHost"></div>
+      </div>
+      <button class="riverbar__btn" id="riverOpen" type="button">Open</button>
+    </div>
+    <!-- Sites commonly refuse to be framed (X-Frame-Options / CSP
+         frame-ancestors) and a cross-origin frame gives no way to detect it,
+         so the escape hatch is always on screen rather than behind a guess. -->
+    <div class="riverframe" id="riverFrame"></div>
+    <p class="riverhint" id="riverHint"></p>
+  </section>
+
+<nav class="nav" role="tablist" aria-label="Views">
+  <button class="nav__btn" data-view="now" aria-current="page" data-icon="wave">Now</button>
+  <button class="nav__btn" data-view="windows" data-icon="calendar">Best times</button>
+  <button class="nav__btn" data-view="forecast" data-icon="chart">Forecast</button>
+  <button class="nav__btn" data-view="rivers" data-icon="river">Rivers</button>
+</nav>
+
+<!-- ---------------- SETTINGS SHEET ---------------- -->
+<div class="sheet" id="settingsSheet" hidden>
+  <div class="sheet__panel" role="dialog" aria-modal="true" aria-label="Settings">
+    <div class="sheet__grip"></div>
+    <div class="sheet__head">
+      <h2 style="font-size:19px">Settings</h2>
+      <div class="topbar__spacer"></div>
+      <button class="iconbtn" id="closeSettings" aria-label="Close settings" data-icon="close"></button>
+    </div>
+    <div id="settingsBody"></div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip" hidden role="status"></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

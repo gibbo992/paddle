@@ -1,0 +1,11 @@
+{
+  "name": "kayak-surf-cullercoats",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Surf conditions scored for a surf kayak or whitewater kayak, on the Tyne & Wear coast.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "serve": "python3 -m http.server 8080"
+  }
+}
