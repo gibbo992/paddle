@@ -148,10 +148,25 @@ export function renderPaddleOut(root, { res, craft }) {
   const head = el('div', 'paddleout__head');
   const pill = el('span', 'pill', out.label);
   pill.dataset.tone = out.tone;
-  head.append(pill, el('span', 'paddleout__detail',
-    out.effort > 0 ? `about ${out.waves} wave${out.waves === 1 ? '' : 's'} to get through, ${out.widthM} m out` : 'nothing breaking'));
 
-  root.append(head, el('p', 'paddleout__note', out.note));
+  // Name the craft on the wave count. It is how many reach YOU on the way out,
+  // which depends on how long you are in there — not a property of the sea,
+  // and it reads as a contradiction between craft unless that is said.
+  head.append(pill, el('span', 'paddleout__detail',
+    out.effort > 0
+      ? `≈${out.waves} to punch through for a ${craft.name.toLowerCase()}`
+      : 'nothing breaking'));
+
+  root.append(head);
+
+  if (out.effort > 0) {
+    // The shared facts, kept visibly separate from the craft-specific one.
+    root.append(el('p', 'paddleout__sea',
+      `Breaking about ${out.widthM} m out · a wave every ${out.intervalS} s · `
+      + `roughly ${out.secondsOut} s of paddling to get outside`));
+  }
+
+  root.append(el('p', 'paddleout__note', out.note));
   return out;
 }
 

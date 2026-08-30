@@ -59,8 +59,16 @@ const BANDS = [
 ];
 
 /**
+ * Getting out, split into what the sea is doing and what it costs THIS craft.
+ *
+ * `widthM` and `intervalS` are properties of the beach and the swell, so they
+ * are the same whichever boat you are in. `waves` is not: it is how many reach
+ * you while you are crossing, which depends on how fast you cross. Presenting
+ * the two side by side without saying so made the wave count look like it was
+ * disagreeing with itself between craft.
+ *
  * @returns {{effort:number, label:string, tone:string, note:string,
- *            widthM:number, waves:number}}
+ *            widthM:number, intervalS:number, waves:number, secondsOut:number}}
  */
 export function paddleOut({ hs, period, craft }) {
   const effort = paddleOutEffort({ hs, period, craft });
@@ -68,13 +76,19 @@ export function paddleOut({ hs, period, craft }) {
   const widthM = surfZoneWidth(hs);
   const interval = Math.max(4, Number.isFinite(period) ? period : 7);
 
+  const secondsOut = widthM / (craft.paddleSpeed || 1.5);
+
   return {
     effort,
     label: band.label,
     tone: band.tone,
     note: band.note,
+    // Shared: the beach and the swell.
     widthM: Math.round(widthM),
-    waves: Math.round((widthM / (craft.paddleSpeed || 1.5)) / interval),
+    intervalS: Math.round(interval),
+    // Craft-specific: how long you are out there, and what reaches you.
+    secondsOut: Math.round(secondsOut),
+    waves: Math.max(effort > 0 ? 1 : 0, Math.round(secondsOut / interval)),
   };
 }
 

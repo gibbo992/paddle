@@ -488,3 +488,7 @@ body.rivers-open { overflow: hidden; }
 .health__icon--ok { color: var(--good); }
 .health__icon--bad { color: var(--serious); }
 .health__count { margin-left: auto; color: var(--text-muted); font-variant-numeric: tabular-nums; font-size: var(--fs-xs); }
+
+/* Sea facts sit below the craft-specific verdict and read quieter, so the two
+   kinds of number are not mistaken for each other. */
+.paddleout__sea { font-size: var(--fs-xs); line-height: var(--lh-sm); color: var(--text-muted); margin: var(--sp-2) 0 0; }
