@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { seriesFor, consensus, agreement, agreementLabel, MARINE_MODEL_IDS } from '../js/sources.js';
-import { buildForecast } from '../js/api.js';
+import { buildForecast, mergeHourly } from '../js/api.js';
 import { getSpot } from '../js/spots.js';
 
 test('seriesFor collects both bare and model-suffixed columns', () => {
@@ -127,4 +127,58 @@ test('a model missing entirely degrades rather than breaking', () => {
 test('the marine model list is non-empty and unique', () => {
   assert.ok(MARINE_MODEL_IDS.length >= 2, 'a consensus needs more than one model');
   assert.equal(new Set(MARINE_MODEL_IDS).size, MARINE_MODEL_IDS.length);
+});
+
+test('sea temperature and sea level survive the multi-model wave request', () => {
+  // Regression. The wave models (ECMWF WAM, DWD GWAM, Météo-France WAVE) do
+  // not output sea surface temperature or sea level, so requesting those
+  // alongside models= returned nothing: the sea temp vanished from the UI and,
+  // far worse, the tide went silently flat with no high or low waters.
+  // They now come from a second, single-model request merged in by timestamp.
+  const times = ['2026-08-30T06:00', '2026-08-30T07:00', '2026-08-30T08:00'];
+
+  const waves = {
+    hourly: {
+      time: times,
+      wave_height_ecmwf_wam025: [0.9, 1.0, 1.1],
+      wave_height_gwam: [0.8, 0.9, 1.0],
+      swell_wave_period_ecmwf_wam025: [8, 8, 8],
+    },
+  };
+  // The separate request: no model suffixes, because no models= was sent.
+  const sea = {
+    hourly: {
+      time: times,
+      sea_surface_temperature: [15.2, 15.2, 15.3],
+      sea_level_height_msl: [-1.1, 0.2, 1.4],
+    },
+  };
+  const land = {
+    hourly: { time: times, wind_speed_10m_ecmwf_ifs025: [9, 9, 9], wind_direction_10m_ecmwf_ifs025: [250, 250, 250] },
+    daily: { time: ['2026-08-30'], sunrise: ['2026-08-30T05:40'], sunset: ['2026-08-30T19:50'] },
+  };
+
+  const fc = buildForecast(getSpot('longsands'), mergeHourly(waves, sea), land);
+
+  assert.equal(fc.hours[0].seaTemp, 15.2, 'sea temperature must survive the merge');
+  assert.equal(fc.hours[0].seaLevel, -1.1, 'sea level must survive the merge');
+  assert.ok(fc.hours.every((h) => Number.isFinite(h.tideNorm)), 'tide must be real, not a flat default');
+  assert.ok(fc.hours[0].waveHeight > 0, 'and the multi-model waves still work');
+});
+
+test('mergeHourly aligns on timestamps rather than trusting row order', () => {
+  const base = { hourly: { time: ['2026-08-30T06:00', '2026-08-30T07:00'], a: [1, 2] } };
+  // Offset by an hour: a positional merge would smear these onto the wrong rows.
+  const extra = { hourly: { time: ['2026-08-30T07:00', '2026-08-30T08:00'], b: [70, 80] } };
+  const merged = mergeHourly(base, extra);
+
+  assert.deepEqual(merged.hourly.a, [1, 2], 'base columns untouched');
+  assert.equal(merged.hourly.b[0], null, 'no 06:00 value to take');
+  assert.equal(merged.hourly.b[1], 70, '07:00 lines up with 07:00');
+});
+
+test('mergeHourly tolerates an empty or failed second request', () => {
+  const base = { hourly: { time: ['2026-08-30T06:00'], a: [1] } };
+  assert.deepEqual(mergeHourly(base, {}).hourly.a, [1]);
+  assert.deepEqual(mergeHourly(base, { hourly: {} }).hourly.a, [1]);
 });

@@ -8,6 +8,9 @@ import { buildForecast } from './api.js';
 import { isoLocal } from './util.js';
 import { MARINE_MODEL_IDS, WEATHER_MODEL_IDS } from './sources.js';
 
+/** Served by their own single-model request, so never model-suffixed. */
+const SEA_ONLY = new Set(['sea_surface_temperature', 'sea_level_height_msl']);
+
 export function demoForecast(spot, days = 7) {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
@@ -100,10 +103,14 @@ export function demoForecast(spot, days = 7) {
     return out;
   };
 
+  // Mirror the real request shape: waves fanned across models, sea temp and
+  // sea level unsuffixed because they come from their own single-model call.
+  // Demo mode that doesn't match the live payload shape hides exactly the kind
+  // of bug that emptied the sea temp and flattened the tide.
   const marineHourly = { time };
   for (const [name, values] of Object.entries(cols)) {
-    Object.assign(marineHourly, fan({ name, values }, MARINE_MODEL_IDS,
-      name === 'sea_level_height_msl' ? 0.02 : 0.28));
+    if (SEA_ONLY.has(name)) marineHourly[name] = values;
+    else Object.assign(marineHourly, fan({ name, values }, MARINE_MODEL_IDS, 0.28));
   }
 
   const landHourly = { time };

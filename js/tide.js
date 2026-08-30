@@ -32,10 +32,12 @@ export function deriveTide(series) {
     }
     const here = levels[i];
     const rangeM = hi - lo;
-    let norm = 0.5;
-    if (Number.isFinite(here) && rangeM > 0.05) {
-      norm = clamp((here - lo) / rangeM, 0, 1);
-    }
+    // NaN, not 0.5, when there is nothing to go on. A default of mid tide is
+    // indistinguishable from a real mid tide downstream, so a missing sea
+    // level series silently cancelled every spot's tide preference instead of
+    // announcing itself.
+    const known = Number.isFinite(here) && rangeM > 0.05;
+    const norm = known ? clamp((here - lo) / rangeM, 0, 1) : NaN;
 
     const prev = levels[Math.max(0, i - 1)];
     const next = levels[Math.min(n - 1, i + 1)];
@@ -45,7 +47,8 @@ export function deriveTide(series) {
 
     let state;
     const nearFlat = Math.abs(slope) < rangeM * 0.06;
-    if (nearFlat && norm > 0.7) state = 'high slack';
+    if (!known) state = 'unknown';
+    else if (nearFlat && norm > 0.7) state = 'high slack';
     else if (nearFlat && norm < 0.3) state = 'low slack';
     else if (slope > 0) state = 'rising';
     else if (slope < 0) state = 'falling';

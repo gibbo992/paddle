@@ -51,10 +51,31 @@ test('springs and neaps are told apart by range', () => {
   assert.ok(tideRegime(sineTide(96, 2.4)).forDate(new Date(2026, 8, 1, 12)).spring);
 });
 
-test('flat data does not produce NaN tide state', () => {
+test('a flat or missing sea level reads as unknown, not as mid tide', () => {
+  // This test previously asserted the opposite — that flat data must still
+  // produce a finite tide value. That assertion was defending a bug: a silent
+  // 0.5 is indistinguishable downstream from a genuine mid tide, so when the
+  // sea level series went missing every spot's tide preference was quietly
+  // cancelled and nothing said so.
   const flat = sineTide(48, 0);
   const t = deriveTide(flat);
-  assert.ok(t.every((x) => Number.isFinite(x.norm)));
+  assert.ok(t.every((x) => Number.isNaN(x.norm)), 'no data must not masquerade as mid tide');
+  assert.ok(t.every((x) => x.state === 'unknown'));
+
+  // And it must degrade rather than throw.
+  const r = scoreHour(hour({ tideNorm: NaN, tideState: 'unknown' }), getSpot('longsands'), getCraft('surf-kayak'));
+  assert.ok(Number.isFinite(r.score));
+});
+
+test('a missing tide is announced, not hidden', () => {
+  const spot = getSpot('blyth');
+  const craft = getCraft('surf-kayak');
+  const h = hour({ tideNorm: NaN, tideState: 'unknown' });
+  const flags = safetyFlags({
+    scored: scoreHour(h, spot, craft), hour: h, spot, craft,
+    regime: { spring: false, rangeM: NaN },
+  });
+  assert.ok(flags.some((f) => f.code === 'no-tide'), 'expected a flag when the tide is unknown');
 });
 
 test('kit advice tracks sea temperature', () => {

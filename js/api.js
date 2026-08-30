@@ -13,12 +13,22 @@ import {
 const MARINE_URL = 'https://marine-api.open-meteo.com/v1/marine';
 const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 
-const MARINE_VARS = [
+// Wave variables, which the wave models all provide.
+const WAVE_VARS = [
   'wave_height', 'wave_direction', 'wave_period',
   'swell_wave_height', 'swell_wave_direction', 'swell_wave_period',
   'wind_wave_height', 'wind_wave_period',
-  'sea_surface_temperature', 'sea_level_height_msl',
 ];
+
+// Sea temperature and sea level are NOT wave-model outputs. ECMWF WAM, DWD
+// GWAM and Météo-France WAVE model the sea surface, not its temperature or
+// the tide, so asking for these alongside `models=` returns nothing at all.
+// That silently emptied the sea temp AND the sea level — which left the tide
+// pinned flat at mid with no high or low waters, quietly cancelling every
+// spot's tide preference. They get their own request, on the default model.
+const SEA_VARS = ['sea_surface_temperature', 'sea_level_height_msl'];
+
+const MARINE_VARS = [...WAVE_VARS, ...SEA_VARS];
 
 const LAND_VARS = [
   'temperature_2m', 'apparent_temperature', 'precipitation',
@@ -28,7 +38,8 @@ const LAND_VARS = [
 
 export const FORECAST_DAYS = 7;
 // v2: cached payloads now carry model spread, so v1 entries are dropped.
-const CACHE_KEY = 'ksc:forecast:v2';
+// v3: v2 entries were cached with an empty sea level and a flat tide.
+const CACHE_KEY = 'ksc:forecast:v3';
 const CACHE_TTL_MS = 30 * 60 * 1000; // Open-Meteo refreshes hourly; 30 min is plenty.
 
 function qs(params) {
@@ -62,11 +73,13 @@ export async function fetchSpotForecast(spot, { signal, days = FORECAST_DAYS } =
 
   // Several models per request. One model is one opinion; four give a
   // headline number AND a measure of how much to trust it.
-  const marineUrl = `${MARINE_URL}?${qs({
+  const waveUrl = `${MARINE_URL}?${qs({
     ...common,
-    hourly: MARINE_VARS.join(','),
+    hourly: WAVE_VARS.join(','),
     models: MARINE_MODEL_IDS.join(','),
   })}`;
+  // Sea temperature and tide, single model — see SEA_VARS above.
+  const seaUrl = `${MARINE_URL}?${qs({ ...common, hourly: SEA_VARS.join(',') })}`;
   const landUrl = `${FORECAST_URL}?${qs({
     ...common,
     hourly: LAND_VARS.join(','),
@@ -75,12 +88,13 @@ export async function fetchSpotForecast(spot, { signal, days = FORECAST_DAYS } =
     models: WEATHER_MODEL_IDS.join(','),
   })}`;
 
-  const [marine, land] = await Promise.all([
-    getJson(marineUrl, signal),
+  const [waves, sea, land] = await Promise.all([
+    getJson(waveUrl, signal),
+    getJson(seaUrl, signal),
     getJson(landUrl, signal),
   ]);
 
-  return buildForecast(spot, marine, land);
+  return buildForecast(spot, mergeHourly(waves, sea), land);
 }
 
 /** Merge the two payloads into one hourly array. Exported so tests can feed it fixtures. */
@@ -171,6 +185,25 @@ export function buildForecast(spot, marine, land) {
 }
 
 const EMPTY = { value: NaN, spread: NaN, count: 0 };
+
+/**
+ * Fold a second payload's hourly columns into the first, aligned by timestamp.
+ * Both requests carry identical parameters so the rows should line up, but
+ * matching on the timestamp costs nothing and cannot silently skew the series.
+ */
+export function mergeHourly(base, extra) {
+  const baseTime = firstTime(base?.hourly);
+  const extraTime = firstTime(extra?.hourly);
+  if (!baseTime.length || !extraTime.length) return base;
+
+  const at = new Map(extraTime.map((t, i) => [t, i]));
+  const hourly = { ...base.hourly };
+  for (const [key, series] of Object.entries(extra.hourly)) {
+    if (key === 'time' || key.startsWith('time_') || !Array.isArray(series)) continue;
+    hourly[key] = baseTime.map((t) => (at.has(t) ? series[at.get(t)] : null));
+  }
+  return { ...base, hourly };
+}
 
 /**
  * The time column. With `models=` set Open-Meteo suffixes every column

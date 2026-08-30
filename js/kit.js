@@ -105,6 +105,14 @@ export function safetyFlags({ scored, hour, spot, craft, regime }) {
     });
   }
 
+  if (!Number.isFinite(hour.tideNorm)) {
+    add({
+      level: 'warning',
+      code: 'no-tide',
+      text: 'No tide data right now — the score is not accounting for the state of the tide.',
+    });
+  }
+
   if (hour.daylight === false) {
     add({ level: 'warning', code: 'dark', text: 'Outside daylight hours.' });
   }
