@@ -13,13 +13,30 @@ const wwKayak = getCraft('ww-kayak');
 const board = getCraft('board');
 
 test('the premise: small weak surf scores better in a kayak than on a board', () => {
-  // 0.55 m, 6 s — the classic "Surfline says 1/10" North Sea morning.
-  const h = hour({ waveHeight: 0.55, swellHeight: 0.5, swellPeriod: 6, wavePeriod: 6 });
-  const kayak = scoreHour(h, cullercoats, surfKayak).score;
-  const shortboard = scoreHour(h, cullercoats, board).score;
+  // The app exists for conditions a board writes off. The claim is the GAP,
+  // not an absolute floor — an earlier version asserted a floor here, and that
+  // assertion was quietly propping up a calibration that called knee-high
+  // windswell "Excellent".
+  const small = hour({ waveHeight: 0.8, swellHeight: 0.8, swellPeriod: 8, wavePeriod: 8 });
+  const kayak = scoreHour(small, longsands, surfKayak).score;
+  const shortboard = scoreHour(small, longsands, board).score;
 
-  assert.ok(kayak > shortboard, `expected kayak ${kayak.toFixed(1)} > board ${shortboard.toFixed(1)}`);
-  assert.ok(kayak >= 4.0, `small clean surf should still be worth a paddle, got ${kayak.toFixed(1)}`);
+  assert.ok(kayak >= 5, `waist-high clean should be worth a paddle in a boat, got ${kayak.toFixed(1)}`);
+  assert.ok(kayak - shortboard >= 1.5,
+    `expected a clear gap, got kayak ${kayak.toFixed(1)} vs board ${shortboard.toFixed(1)}`);
+});
+
+test('a surf kayak beats a river boat in clean surf, and loses in slop', () => {
+  // The planing hull wins when the wave has shape; the river boat wins when it
+  // is messy and short-period. Getting this backwards was a real bug — the app
+  // was telling you to take the creek boat on a clean day.
+  const clean = hour({ waveHeight: 0.9, swellHeight: 0.9, swellPeriod: 9, wavePeriod: 9 });
+  assert.ok(scoreHour(clean, longsands, surfKayak).score > scoreHour(clean, longsands, wwKayak).score,
+    'surf kayak should lead in clean surf');
+
+  const slop = hour({ waveHeight: 0.9, swellHeight: 0.9, swellPeriod: 5, wavePeriod: 5, windKn: 16, windDirection: 68 });
+  assert.ok(scoreHour(slop, longsands, wwKayak).score > scoreHour(slop, longsands, surfKayak).score,
+    'river boat should lead in short-period onshore slop');
 });
 
 test('and big surf scores worse in a kayak than on a board', () => {
