@@ -13,7 +13,21 @@ const FLOOR = 0.02;          // keeps ln() finite
 // A perfect 10 should be a thing you remember, not a Tuesday. Everything ideal
 // at once lands around 9.6, leaving the top of the scale genuinely rare.
 const MAX_SCORE = 9.7;
-export const FACE_FACTOR = 1.4; // Hs → breaking face height, roughly
+/**
+ * Hs → breaking face height.
+ *
+ * Not a constant: how much a wave stands up as it shoals depends on its
+ * period. A 14 s groundswell feels the bottom far sooner and jacks up; a 7 s
+ * windswell mostly just flops over. A flat 1.4× was reporting 3 ft faces on
+ * days Surfline called 1–2 ft, which is most of what made the two disagree.
+ */
+export function faceFactor(period) {
+  if (!Number.isFinite(period)) return 1.15;
+  return clamp(0.75 + 0.05 * period, 0.95, 1.6);
+}
+
+/** Fallback for callers with no period to hand. */
+export const FACE_FACTOR = 1.15;
 
 export const RATINGS = [
   { min: 8.5, label: 'Excellent', tone: 'excellent' },
@@ -94,11 +108,11 @@ export function scoreSwellDirection(swellFromDeg, spot) {
     const dCore = Math.min(angleDiff(swellFromDeg, w.best0), angleDiff(swellFromDeg, w.best1));
     const dEdge = Math.min(angleDiff(swellFromDeg, w.from), angleDiff(swellFromDeg, w.to));
     const t = dEdge / Math.max(1, dCore + dEdge);
-    return clamp(0.25 + 0.75 * t, 0.25, 1);
+    return clamp(0.4 + 0.6 * t, 0.4, 1);
   }
   // Outside the window entirely: falls away fast.
   const miss = arcDistance(swellFromDeg, w.from, w.to);
-  return clamp(0.25 * Math.exp(-miss / 18), FLOOR, 0.25);
+  return clamp(0.4 * Math.exp(-miss / 22), FLOOR, 0.4);
 }
 
 export function scoreTide(tideNorm, spot, tideState) {
@@ -140,7 +154,7 @@ export function scoreHour(h, spot, craft) {
   const exposure = spot.shelter * clamp(dirScore, 0.02, 1) ** 0.6;
   const hs = Number.isFinite(h.waveHeight) ? h.waveHeight * exposure : NaN;
 
-  const sizeScore = bandScore(hs, craft.size.a, craft.size.b, craft.size.c, craft.size.d, 0.15);
+  const sizeScore = bandScore(hs, craft.size.a, craft.size.b, craft.size.c, craft.size.d, 0.30);
 
   const periodScore = bandScore(period, craft.period.a, craft.period.b, craft.period.c, craft.period.d, 0.10);
   const steep = steepness(hs, period);
@@ -231,8 +245,9 @@ export function scoreHour(h, spot, craft) {
     hs,
     exposure,
     openCoastHs: Number.isFinite(h.waveHeight) ? h.waveHeight : NaN,
-    faceM: Number.isFinite(hs) ? hs * FACE_FACTOR : NaN,
-    faceFt: Number.isFinite(hs) ? mToFt(hs * FACE_FACTOR) : NaN,
+    faceFactor: faceFactor(period),
+    faceM: Number.isFinite(hs) ? hs * faceFactor(period) : NaN,
+    faceFt: Number.isFinite(hs) ? mToFt(hs * faceFactor(period)) : NaN,
     period,
     swellDir,
     steepness: steep,

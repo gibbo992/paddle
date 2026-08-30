@@ -282,6 +282,40 @@ rising/falling, with high and low waters found as turning points. **It is a
 model, not Admiralty tide tables** — fine for timing a session, not for
 navigation.
 
+## Calibration
+
+The scale is anchored against a published forecast in `test/calibration.test.mjs`
+(Surfline, Longsands, 31/08/2026: 1.8–2.2 ft at 7 s, rated poor). Those tests
+exist because an earlier version got this badly wrong — it called that day
+**Excellent** for a surf kayak.
+
+The bug was in what the `size` band meant. It had been calibrated as *what a
+kayak can ride* rather than *what a kayak wants*, with the ideal starting at
+0.6 m — knee-high. Since a kayak can catch almost anything, almost everything
+scored near-perfect, and the whole week came out dark green. The ideal band now
+starts at 0.95 m, and the dome over it is deep enough (30%) that chest-high
+clearly beats knee-high.
+
+Two related fixes came out of the same comparison:
+
+- **A river boat no longer outscores a surf kayak in clean small surf.** Its
+  ideal band used to sit *below* the surf kayak's, which inverted the planing
+  advantage. It now sits above, and it wins only where it should — short-period
+  onshore slop.
+- **Face height depends on period**, not a flat 1.4× multiplier. A 14 s
+  groundswell stands up as it shoals; a 7 s windswell mostly flops over. The
+  flat factor was reporting 3 ft faces on 1–2 ft days.
+
+**Expect this app and a board forecast to disagree about whether to go — that is
+the point — but not about how big it is.** If they differ on size, the table
+view (Forecast → Show as a table) prints the raw model `Hs` next to the derived
+face so you can see which half is wrong.
+
+One known and unverified difference: Open-Meteo's `wave_height` is the
+significant height of the *combined* sea state, where Surfline quotes the
+*primary swell partition*. Combined is the larger number. If this app reads
+consistently big, that is the first thing to suspect.
+
 ## Limitations, honestly
 
 - Wave data is offshore model output. It knows nothing about sandbanks, which is

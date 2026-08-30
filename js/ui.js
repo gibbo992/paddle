@@ -5,7 +5,6 @@ import {
   clamp, compass, mToFt, fmtClock, fmtDuration, round, dayKey,
 } from './util.js';
 import { iconHtml } from './icons.js';
-import { FACE_FACTOR } from './scoring.js';
 import { ratingFor, RATINGS } from './scoring.js';
 import { agreementLabel } from './sources.js';
 
@@ -120,8 +119,8 @@ export function renderStats(grid, { res, hour, units, tideRegime }) {
   // to a decimal place as if it were settled.
   let surfSub = 'face';
   if (Number.isFinite(hour.waveSpread) && hour.waveSpread > 0.2 && Number.isFinite(res.exposure)) {
-    const lo = (res.hs - hour.waveSpread / 2) * FACE_FACTOR;
-    const hi = (res.hs + hour.waveSpread / 2) * FACE_FACTOR;
+    const lo = (res.hs - (hour.waveSpread * res.exposure) / 2) * res.faceFactor;
+    const hi = (res.hs + (hour.waveSpread * res.exposure) / 2) * res.faceFactor;
     surfSub = `${fmtHeight(Math.max(0, lo), units)}–${fmtHeight(hi, units)}`;
   }
 
@@ -452,7 +451,7 @@ function renderTable(root, scoredHours, now, units) {
     .filter((e) => e.hour.time >= new Date(+now - 3600e3))
     .slice(0, 96);
 
-  const head = ['Time', 'Score', 'Rating', 'Face', 'Period', 'Wind', 'Tide', 'Air', 'Sea'];
+  const head = ['Time', 'Score', 'Rating', 'Face', 'Swell (Hs)', 'Period', 'Wind', 'Tide', 'Air', 'Sea'];
   const table = el('table');
   const thead = el('thead');
   const hr = el('tr');
@@ -467,6 +466,7 @@ function renderTable(root, scoredHours, now, units) {
       el('td', null, res.score.toFixed(1)),
       el('td', null, res.rating.label),
       el('td', null, fmtHeight(res.faceM, units)),
+      el('td', null, Number.isFinite(hour.waveHeight) ? `${round(hour.waveHeight, 2)} m` : '--'),
       el('td', null, Number.isFinite(res.period) ? `${Math.round(res.period)} s` : '--'),
       el('td', null, `${fmtWind(hour.windKn, units)} ${compass(hour.windDirection)}`),
       el('td', null, tidePct(hour.tideNorm)),

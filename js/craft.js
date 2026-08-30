@@ -6,6 +6,13 @@
 //
 //  * A surf kayak planes and is already moving. It catches waves far earlier
 //    than a board, so it works in small, weak, gutless surf a board sinks in.
+//
+// CALIBRATION NOTE. The `size` band below is what the craft WANTS, not what it
+// can technically ride. Those are different, and conflating them was a real
+// bug: the ideal band used to start at 0.6 m, so a knee-high 2 ft windswell
+// scored near-perfect and the app called a day Surfline rated poor "Excellent".
+// `a` is the point below which nothing is catchable at all; `b` is where it
+// starts being a session you would drive for.
 //  * A surf kayak is long and low-volume in the nose — it will pearl and it is
 //    much harder to get out through a big dumping shorebreak (no duck dive).
 //    So its top end is lower than a board's, not higher.
@@ -28,8 +35,8 @@ export const CRAFT = [
     name: 'Surf kayak',
     short: 'Surf kayak',
     blurb: 'Planing surf kayak or waveski',
-    // Catches early → low minimum. Hard to escape a big beating → modest ceiling.
-    size: { a: 0.22, b: 0.6, c: 1.6, d: 2.7 },
+    // Catches early, so `a` is low — but chest-high is what it actually wants.
+    size: { a: 0.25, b: 0.95, c: 1.70, d: 2.7 },
     hardMax: 2.4,
     // Happy from short-period windswell upward.
     period: { a: 3.0, b: 5.5, c: 14, d: 20 },
@@ -46,7 +53,12 @@ export const CRAFT = [
     name: 'Whitewater kayak',
     short: 'Whitewater',
     blurb: 'River boat, creeker or playboat',
-    size: { a: 0.18, b: 0.45, c: 1.15, d: 1.9 },
+    // Its minimum sits ABOVE the surf kayak's, not below: a displacement hull
+    // needs a steeper, punchier wave to get picked up at all, where a planing
+    // hull is already moving. Its ceiling is lower again. Where it genuinely
+    // beats a surf kayak is messy short-period slop, and that is carried by
+    // the period band and onshore tolerance — not by wanting smaller waves.
+    size: { a: 0.30, b: 0.90, c: 1.30, d: 2.0 },
     hardMax: 1.6,
     // Copes with the shortest, sloppiest windswell of the three.
     period: { a: 2.5, b: 4.5, c: 11, d: 16 },
@@ -63,7 +75,7 @@ export const CRAFT = [
     name: 'Shortboard',
     short: 'Board',
     blurb: 'Reference — roughly what Surfline is scoring',
-    size: { a: 0.5, b: 1.0, c: 2.2, d: 3.6 },
+    size: { a: 0.55, b: 1.15, c: 2.30, d: 3.6 },
     hardMax: 3.2,
     period: { a: 4.5, b: 8, c: 16, d: 22 },
     steepness: { a: 0.0018, b: 0.005, c: 0.019, d: 0.033 },
