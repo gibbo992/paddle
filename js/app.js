@@ -197,6 +197,7 @@ function render() {
 
   $('statsCard').hidden = false;
   ui.renderStats($('statsGrid'), { res, hour, units: state.settings.units, tideRegime: regime });
+  ui.renderAgreement($('statsAgreement'), hour);
   $('statsNote').textContent = state.selected ? `at ${fmtClock(hour.time)}` : 'now';
 
   $('partsCard').hidden = false;

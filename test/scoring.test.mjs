@@ -301,3 +301,25 @@ test('limiting-factor wording matches how bad it actually is', () => {
   assert.equal(severe.key, 'direction', 'should blame the cause, not the symptom');
   assert.match(severe.label, /out of the window/);
 });
+
+test('Hartley Reef is configured as a reef and takes a wide swell window', () => {
+  const hartley = getSpot('hartley-reef');
+  assert.equal(hartley.reef, true);
+  // It focuses swell rather than sheltering from it — that is why it works
+  // when the beaches are still flat.
+  assert.ok(hartley.shelter > 1, 'a reef should concentrate swell, not reduce it');
+  assert.ok(scoreTide(0.8, hartley) > scoreTide(0.2, hartley), 'mid-to-high break');
+  assert.ok(hartley.prefersPush, 'works on the push');
+
+  // Takes N through E, so it holds up further round than the beaches.
+  assert.ok(scoreSwellDirection(95, hartley) > scoreSwellDirection(95, getSpot('kingedwards')));
+});
+
+test('a reef works on a swell that leaves the beaches flat', () => {
+  // Half a metre: under the beaches' threshold, but the reef focuses it.
+  const small = hour({ waveHeight: 0.5, swellHeight: 0.5, swellPeriod: 9, wavePeriod: 9, tideNorm: 0.75 });
+  const reef = scoreHour(small, getSpot('hartley-reef'), surfKayak);
+  const beach = scoreHour(small, getSpot('whitley'), surfKayak);
+  assert.ok(reef.hs > beach.hs, 'the reef should see more of the swell than the beach');
+  assert.ok(reef.score > beach.score);
+});

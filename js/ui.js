@@ -5,7 +5,9 @@ import {
   clamp, compass, mToFt, fmtClock, fmtDuration, round, dayKey,
 } from './util.js';
 import { iconHtml } from './icons.js';
+import { FACE_FACTOR } from './scoring.js';
 import { ratingFor, RATINGS } from './scoring.js';
+import { agreementLabel } from './sources.js';
 
 /**
  * Score → colour, on a traffic-light STATUS scale rather than a sequential
@@ -114,8 +116,17 @@ export function renderStats(grid, { res, hour, units, tideRegime }) {
   const tideSub = Number.isFinite(hour.tideNorm) ? (hour.tideState || '') : '';
 
   // Ordered by how much each one decides whether you go.
+  // When the models disagree, say by how much rather than quoting one figure
+  // to a decimal place as if it were settled.
+  let surfSub = 'face';
+  if (Number.isFinite(hour.waveSpread) && hour.waveSpread > 0.2 && Number.isFinite(res.exposure)) {
+    const lo = (res.hs - hour.waveSpread / 2) * FACE_FACTOR;
+    const hi = (res.hs + hour.waveSpread / 2) * FACE_FACTOR;
+    surfSub = `${fmtHeight(Math.max(0, lo), units)}–${fmtHeight(hi, units)}`;
+  }
+
   grid.append(
-    stat('Surf', fmtHeight(res.faceM, units), 'face'),
+    stat('Surf', fmtHeight(res.faceM, units), surfSub),
     stat('Period', period, `${swellTxt} swell`),
     stat('Wind', fmtWind(hour.windKn, units), windSub),
     stat('Tide', tidePct(hour.tideNorm), tideSub),
@@ -177,6 +188,13 @@ export function renderParts(list, explain, noteEl, { res, spot, craft }) {
 }
 
 // --- flags -----------------------------------------------------------------
+
+/** Model agreement, as a sentence. Blank when there is nothing to say. */
+export function renderAgreement(el_, hour) {
+  const { label, tone } = agreementLabel(hour.agreement, hour.modelCount);
+  el_.textContent = label;
+  el_.dataset.tone = tone;
+}
 
 export function renderFlags(root, flags) {
   root.replaceChildren();

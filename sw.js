@@ -19,6 +19,7 @@ const ASSETS = [
   'js/icons.js',
   'js/rivers.js',
   'js/scoring.js',
+  'js/sources.js',
   'js/settings-ui.js',
   'js/spots.js',
   'js/store.js',

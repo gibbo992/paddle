@@ -77,8 +77,32 @@ export function safetyFlags({ scored, hour, spot, craft, regime }) {
     });
   }
 
+  // A reef is a different proposition in a boat: you cannot bail out onto sand,
+  // and a plastic hull skidding over a rock shelf at low water is how people
+  // get hurt. Worth saying every time, not buried in the spot notes.
+  if (spot.reef) {
+    const shallow = Number.isFinite(hour.tideNorm) && hour.tideNorm < 0.35;
+    add({
+      level: shallow ? 'serious' : 'warning',
+      code: 'reef',
+      text: shallow
+        ? `${spot.short} is a rock shelf and the tide is low — not enough water over it.`
+        : `${spot.short} is a flat rock shelf. Nothing forgiving under you if you come out.`,
+    });
+  }
+
   for (const hazard of spot.hazards || []) {
     add({ level: 'info', code: `hazard:${hazard}`, text: hazard });
+  }
+
+  // A forecast the models can't agree on is worth knowing about before you
+  // load the boat — especially five days out, where they diverge most.
+  if (Number.isFinite(hour.agreement) && hour.modelCount >= 2 && hour.agreement < 0.35) {
+    add({
+      level: 'warning',
+      code: 'model-spread',
+      text: `The forecast models disagree about this one — treat the numbers as a range, not a promise.`,
+    });
   }
 
   if (hour.daylight === false) {

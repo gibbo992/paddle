@@ -458,3 +458,8 @@ body.rivers-open { overflow: hidden; }
 
 [hidden] { display: none !important; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* Model agreement. Muted when the models line up — it is only worth your
+   attention when they don't. */
+#statsAgreement[data-tone="warning"] { color: var(--serious); }
+#statsAgreement[data-tone="serious"] { color: var(--critical); }
