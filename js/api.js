@@ -4,8 +4,11 @@
 // Docs: https://open-meteo.com/en/docs/marine-weather-api
 //       https://open-meteo.com/en/docs
 
-import { parseLocal, kmhToKn, dayKey } from './util.js';
+import { parseLocal, dayKey } from './util.js';
 import { deriveTide, findExtremes, tideRegime } from './tide.js';
+import {
+  MARINE_MODEL_IDS, WEATHER_MODEL_IDS, seriesFor, consensus, agreement,
+} from './sources.js';
 
 const MARINE_URL = 'https://marine-api.open-meteo.com/v1/marine';
 const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
@@ -24,7 +27,8 @@ const LAND_VARS = [
 ];
 
 export const FORECAST_DAYS = 7;
-const CACHE_KEY = 'ksc:forecast:v1';
+// v2: cached payloads now carry model spread, so v1 entries are dropped.
+const CACHE_KEY = 'ksc:forecast:v2';
 const CACHE_TTL_MS = 30 * 60 * 1000; // Open-Meteo refreshes hourly; 30 min is plenty.
 
 function qs(params) {
@@ -41,9 +45,6 @@ async function getJson(url, signal) {
   return json;
 }
 
-/** Column from an Open-Meteo hourly block, tolerant of a missing variable. */
-const col = (block, name) => (block && Array.isArray(block[name]) ? block[name] : []);
-
 /**
  * Fetch and merge one spot's forecast.
  * `past_days=1` matters: deriveTide needs ~6 h of history either side of a
@@ -59,12 +60,19 @@ export async function fetchSpotForecast(spot, { signal, days = FORECAST_DAYS } =
     past_days: 1,
   };
 
-  const marineUrl = `${MARINE_URL}?${qs({ ...common, hourly: MARINE_VARS.join(',') })}`;
+  // Several models per request. One model is one opinion; four give a
+  // headline number AND a measure of how much to trust it.
+  const marineUrl = `${MARINE_URL}?${qs({
+    ...common,
+    hourly: MARINE_VARS.join(','),
+    models: MARINE_MODEL_IDS.join(','),
+  })}`;
   const landUrl = `${FORECAST_URL}?${qs({
     ...common,
     hourly: LAND_VARS.join(','),
     daily: 'sunrise,sunset',
     wind_speed_unit: 'kn',
+    models: WEATHER_MODEL_IDS.join(','),
   })}`;
 
   const [marine, land] = await Promise.all([
@@ -77,8 +85,8 @@ export async function fetchSpotForecast(spot, { signal, days = FORECAST_DAYS } =
 
 /** Merge the two payloads into one hourly array. Exported so tests can feed it fixtures. */
 export function buildForecast(spot, marine, land) {
-  const mTime = col(marine.hourly, 'time');
-  const lTime = col(land.hourly, 'time');
+  const mTime = firstTime(marine.hourly);
+  const lTime = firstTime(land.hourly);
 
   // Index the land forecast by timestamp — the two endpoints agree on the hour,
   // but not necessarily on the array offset once past_days is involved.
@@ -86,40 +94,57 @@ export function buildForecast(spot, marine, land) {
 
   const daily = buildDaily(land.daily);
 
+  // Resolve each variable to its per-model series once, rather than per hour.
+  const M = (name) => seriesFor(marine.hourly, name, MARINE_MODEL_IDS);
+  const L = (name) => seriesFor(land.hourly, name, WEATHER_MODEL_IDS);
+
+  const marineSeries = Object.fromEntries(MARINE_VARS.map((v) => [v, M(v)]));
+  const landSeries = Object.fromEntries(LAND_VARS.map((v) => [v, L(v)]));
+
   const hours = mTime.map((t, i) => {
     const j = landIndex.has(t) ? landIndex.get(t) : -1;
-    const at = (block, name) => (j >= 0 ? col(block, name)[j] : undefined);
+
+    const mv = (name) => consensus(marineSeries[name], i);
+    const lv = (name) => (j >= 0 ? consensus(landSeries[name], j) : EMPTY);
 
     const time = parseLocal(t);
     const day = daily.get(dayKey(time));
 
-    const windKn = at(land.hourly, 'wind_speed_10m');
-    const gustKn = at(land.hourly, 'wind_gusts_10m');
+    const wave = mv('wave_height');
+    const wind = lv('wind_speed_10m');
 
     return {
       time,
       iso: t,
-      waveHeight: num(col(marine.hourly, 'wave_height')[i]),
-      waveDirection: num(col(marine.hourly, 'wave_direction')[i]),
-      wavePeriod: num(col(marine.hourly, 'wave_period')[i]),
-      swellHeight: num(col(marine.hourly, 'swell_wave_height')[i]),
-      swellDirection: num(col(marine.hourly, 'swell_wave_direction')[i]),
-      swellPeriod: num(col(marine.hourly, 'swell_wave_period')[i]),
-      windWaveHeight: num(col(marine.hourly, 'wind_wave_height')[i]),
-      windWavePeriod: num(col(marine.hourly, 'wind_wave_period')[i]),
-      seaTemp: num(col(marine.hourly, 'sea_surface_temperature')[i]),
-      seaLevel: num(col(marine.hourly, 'sea_level_height_msl')[i]),
+      waveHeight: wave.value,
+      waveDirection: mv('wave_direction').value,
+      wavePeriod: mv('wave_period').value,
+      swellHeight: mv('swell_wave_height').value,
+      swellDirection: mv('swell_wave_direction').value,
+      swellPeriod: mv('swell_wave_period').value,
+      windWaveHeight: mv('wind_wave_height').value,
+      windWavePeriod: mv('wind_wave_period').value,
+      seaTemp: mv('sea_surface_temperature').value,
+      seaLevel: mv('sea_level_height_msl').value,
 
-      airTemp: num(at(land.hourly, 'temperature_2m')),
-      apparentTemp: num(at(land.hourly, 'apparent_temperature')),
-      precip: num(at(land.hourly, 'precipitation')),
-      weatherCode: num(at(land.hourly, 'weather_code')),
-      cloudCover: num(at(land.hourly, 'cloud_cover')),
-      // wind_speed_unit=kn means these arrive in knots already; guard anyway in
-      // case a caller ever drops the unit param.
-      windKn: num(windKn),
-      windGustKn: num(gustKn),
-      windDirection: num(at(land.hourly, 'wind_direction_10m')),
+      airTemp: lv('temperature_2m').value,
+      apparentTemp: lv('apparent_temperature').value,
+      precip: lv('precipitation').value,
+      weatherCode: lv('weather_code').value,
+      cloudCover: lv('cloud_cover').value,
+      // wind_speed_unit=kn means these arrive in knots already.
+      windKn: wind.value,
+      windGustKn: lv('wind_gusts_10m').value,
+      windDirection: lv('wind_direction_10m').value,
+
+      // How much the models argue, and about what.
+      waveSpread: wave.spread,
+      windSpread: wind.spread,
+      modelCount: Math.max(wave.count, wind.count),
+      agreement: agreement({
+        waveHeight: wave.value, waveSpread: wave.spread,
+        windKn: wind.value, windSpread: wind.spread,
+      }),
 
       sunrise: day?.sunrise ?? null,
       sunset: day?.sunset ?? null,
@@ -145,6 +170,21 @@ export function buildForecast(spot, marine, land) {
   };
 }
 
+const EMPTY = { value: NaN, spread: NaN, count: 0 };
+
+/**
+ * The time column. With `models=` set Open-Meteo suffixes every column
+ * including `time`, so fall back to the first suffixed one it finds.
+ */
+function firstTime(block) {
+  if (!block) return [];
+  if (Array.isArray(block.time)) return block.time;
+  for (const key of Object.keys(block)) {
+    if (key.startsWith('time_') && Array.isArray(block[key])) return block[key];
+  }
+  return [];
+}
+
 function buildDaily(daily) {
   const out = new Map();
   const times = daily?.time || [];
@@ -163,8 +203,6 @@ function buildDaily(daily) {
   });
   return out;
 }
-
-const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : NaN);
 
 // ---------------------------------------------------------------------------
 // Caching. The service worker caches the shell; this caches the data, so the

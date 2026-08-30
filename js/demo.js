@@ -6,6 +6,7 @@
 
 import { buildForecast } from './api.js';
 import { isoLocal } from './util.js';
+import { MARINE_MODEL_IDS, WEATHER_MODEL_IDS } from './sources.js';
 
 export function demoForecast(spot, days = 7) {
   const start = new Date();
@@ -83,10 +84,38 @@ export function demoForecast(spot, days = 7) {
     sunset.push(`${key}T19:${dd % 2 ? '58' : '52'}`);
   }
 
+  // Fan each series out across the models with a little disagreement, so demo
+  // mode exercises the consensus path rather than a single tidy series. The
+  // spread widens with lead time, which is what really happens.
+  const fan = (col, models, scatter) => {
+    const out = {};
+    models.forEach((id, m) => {
+      out[`${col.name}_${id}`] = col.values.map((v, i) => {
+        if (!Number.isFinite(v)) return v;
+        const lead = i / (24 * 7);
+        const bias = (m - (models.length - 1) / 2) / Math.max(1, models.length - 1);
+        return round2(v * (1 + bias * scatter * (0.35 + lead)));
+      });
+    });
+    return out;
+  };
+
+  const marineHourly = { time };
+  for (const [name, values] of Object.entries(cols)) {
+    Object.assign(marineHourly, fan({ name, values }, MARINE_MODEL_IDS,
+      name === 'sea_level_height_msl' ? 0.02 : 0.28));
+  }
+
+  const landHourly = { time };
+  for (const [name, values] of Object.entries(land)) {
+    Object.assign(landHourly, fan({ name, values }, WEATHER_MODEL_IDS,
+      name.startsWith('wind_speed') ? 0.45 : 0.12));
+  }
+
   return buildForecast(
     spot,
-    { hourly: { time, ...cols } },
-    { hourly: { time, ...land }, daily: { time: dailyTime, sunrise, sunset } },
+    { hourly: marineHourly },
+    { hourly: landHourly, daily: { time: dailyTime, sunrise, sunset } },
   );
 }
 

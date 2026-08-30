@@ -64,7 +64,7 @@ export const SPOTS = [
     // Guide: ideal swell NE, offshore WSW (247°), works at all stages of tide
     // with the two decent banks best "on the tidal push".
     facing: 68,
-    swellWindow: { from: 340, to: 130, best0: 25, best1: 70 },
+    swellWindow: { from: 330, to: 130, best0: 0, best1: 80 },
     shelter: 1.0,
     tide: { ok0: 0.0, best0: 0.12, best1: 0.9, ok1: 1.0 },
     prefersPush: true,
@@ -84,14 +84,15 @@ export const SPOTS = [
     confidence: 'sourced',
     // Guide: NE-facing cove sheltered by cliffs, ideal swell NNE, offshore W,
     // best around LOW tide.
-    facing: 80,
-    swellWindow: { from: 350, to: 100, best0: 10, best1: 55 },
+    facing: 90,
+    swellWindow: { from: 350, to: 100, best0: 5, best1: 60 },
     shelter: 0.68,
     tide: { ok0: 0.0, best0: 0.05, best1: 0.45, ok1: 0.75 },
     prefersPush: false,
     dirWeight: 2.2,
     tideWeight: 1.4,
-    hazards: ['Cliffs and rocks on both sides', 'Shrinks to almost nothing at high water'],
+    hazards: ['Cliffs and rocks on both sides', 'Shrinks to almost nothing at high water',
+      'Poor water quality'],
     notes: 'Cove under the priory, sheltered by cliffs on both sides. Wants a NNE ' +
       'swell and a W offshore, and it is best around low water — the beach all ' +
       'but disappears at the top of the tide. Needs a solid swell before anything shows.',
@@ -103,19 +104,51 @@ export const SPOTS = [
     lat: 55.0480,
     lon: -1.4420,
     confidence: 'sourced',
-    // Guide: ideal swell NNE, offshore SW, rocks a hazard, inconsistent.
-    // No tide preference published — that part is an estimate.
-    facing: 55,
-    swellWindow: { from: 345, to: 120, best0: 10, best1: 60 },
-    shelter: 0.95,
-    tide: { ok0: 0.15, best0: 0.35, best1: 0.75, ok1: 1.0 },
+    // NNE swell, SW offshore (225°), works across the tide. The most
+    // consistent beach of the group — a broad bay that picks up more swell
+    // than its neighbours and breaks over several banks.
+    facing: 45,
+    swellWindow: { from: 325, to: 120, best0: 345, best1: 70 },
+    shelter: 0.98,
+    tide: { ok0: 0.0, best0: 0.15, best1: 0.9, ok1: 1.0 },
     prefersPush: false,
     dirWeight: 1.2,
-    tideWeight: 0.9,
-    hazards: ['Rocks — a stated hazard here'],
-    notes: 'Long open sands. NNE swell with a SW offshore is the combination. ' +
-      'Inconsistent, and there are rocks about. No published tide preference, ' +
-      'so the tide band here is a guess.',
+    tideWeight: 0.7,
+    hazards: ['Rock in among the sand', 'Gets busy when it is on'],
+    notes: 'The most consistent beach of the six — a broad bay that picks up more ' +
+      'swell than its neighbours and breaks left and right across several banks. ' +
+      'Works across the tide. Popular for the same reasons, and there is rock in ' +
+      'among the sand to keep track of.',
+  },
+  {
+    id: 'hartley-reef',
+    name: 'Hartley Reef',
+    short: 'Hartley',
+    lat: 55.0700,
+    lon: -1.4620,
+    confidence: 'sourced',
+    reef: true,
+    // The only reef on this stretch, and the best wave on it. NNE swell but
+    // takes anything from N through E; W offshore, tolerating NW–SW. Mid to
+    // high water, on the push. Flat rock shelf, breaks both ways.
+    facing: 90,
+    swellWindow: { from: 330, to: 130, best0: 345, best1: 100 },
+    // Above 1: a reef focuses swell rather than sheltering from it, which is
+    // why it starts working under a metre when the beaches are still flat.
+    shelter: 1.12,
+    tide: { ok0: 0.2, best0: 0.5, best1: 0.95, ok1: 1.0 },
+    prefersPush: true,
+    dirWeight: 1.3,
+    tideWeight: 1.3,
+    hazards: [
+      'Flat rock shelf close under the surface',
+      'Rips running off the reef',
+      'Poor water quality',
+    ],
+    notes: 'The best wave on this stretch and the one that asks the most. Flat rock ' +
+      'bottom, breaks both ways, starts working under a metre and holds past four — ' +
+      'so it is the call when the beaches are too small, and equally when they are ' +
+      'too big. Experienced paddlers only: a reef is unforgiving in a boat.',
   },
   {
     id: 'seaton-sluice',
@@ -125,8 +158,8 @@ export const SPOTS = [
     lon: -1.4740,
     confidence: 'sourced',
     // Guide: ideal swell NNE, offshore SSW, best around MID tide.
-    facing: 45,
-    swellWindow: { from: 345, to: 125, best0: 10, best1: 60 },
+    facing: 23,
+    swellWindow: { from: 325, to: 115, best0: 345, best1: 70 },
     shelter: 0.93,
     tide: { ok0: 0.1, best0: 0.3, best1: 0.7, ok1: 0.95 },
     prefersPush: false,
@@ -146,14 +179,15 @@ export const SPOTS = [
     confidence: 'sourced',
     // Guide: ideal swell NNE, takes N through ENE round to SE, offshore W/WNW,
     // best around HIGH tide with a rising tide generally better.
-    facing: 100,
-    swellWindow: { from: 350, to: 140, best0: 15, best1: 65 },
+    facing: 113,
+    swellWindow: { from: 320, to: 135, best0: 345, best1: 70 },
     shelter: 1.0,
     tide: { ok0: 0.25, best0: 0.6, best1: 1.0, ok1: 1.0 },
     prefersPush: true,
     dirWeight: 1.0,
     tideWeight: 1.1,
-    hazards: ['Rip along the pier', 'Shipping in and out of the harbour'],
+    hazards: ['Rip along the pier', 'Shipping in and out of the harbour',
+      'Poor water quality — try not to swallow it'],
     notes: 'The widest swell window on this stretch — takes anything from N round ' +
       'to SE — and usually a touch bigger than the Tynemouth beaches. Best near ' +
       'high water and better still on a rising tide. W or WNW is the offshore.',

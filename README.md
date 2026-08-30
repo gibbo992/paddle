@@ -140,19 +140,29 @@ Every spot in `js/spots.js` declares `confidence: 'sourced'` or `'estimated'`.
 **Sourced** — swell direction, offshore wind and tide preference taken from
 published break guides (surf-forecast.com break pages, Surfline spot guides):
 
-| Spot | Ideal swell | Offshore wind | Best tide |
-|---|---|---|---|
-| Tynemouth Longsands | NE | WSW | all stages, best **on the push** |
-| King Edward's Bay | NNE | W | **low** |
-| Whitley Bay | NNE | SW | not published — estimated |
-| Seaton Sluice | NNE | SSW | **mid** |
-| Blyth South Beach | NNE (takes N→ENE→SE) | W/WNW | **high**, better rising |
+| Spot | Type | Ideal swell | Offshore wind | Best tide |
+|---|---|---|---|---|
+| Tynemouth Longsands | Beach | NE | WSW | all stages, best **on the push** |
+| King Edward's Bay | Beach (cove) | NNE | W | **low** |
+| Whitley Bay | Beach | NNE | SW | **works across the tide** |
+| **Hartley Reef** | **Reef** | NNE, takes N→E | W (tolerates NW–SW) | **mid to high, on the push** |
+| Seaton Sluice | Beach | NNE | SSW | **mid** |
+| Blyth South Beach | Beach | NNE | WNW, or SW | **high**, better rising |
 
 **Estimated** — Cullercoats. It isn't listed as a break by any of the forecast
 sites, because at 0–1 ft it is beneath a shortboard's notice; the guides
 describe it only as a sheltered semi-circular bay between two stone piers. That
 absence is the whole reason this app exists, but it does mean its swell window,
 shelter and tide band are my guesses rather than anyone's published numbers.
+
+**Hartley Reef is the odd one out** and the best wave on the stretch. A flat
+rock shelf rather than sand, breaking both ways, which starts working under a
+metre and holds past four — so it is the call when the beaches are too small,
+and equally when they are too big. It carries `reef: true` and a `shelter`
+above 1, because a reef *focuses* swell rather than sheltering from it. In a
+boat it is also the least forgiving thing here, so the app always flags the
+rock, and escalates that to a serious warning below mid tide when there isn't
+enough water over the shelf.
 
 Note those guides describe what a **board** wants. The craft profiles in
 `craft.js` re-score it for a boat; a spot's swell window, shelter and tide
@@ -241,12 +251,30 @@ so the surf score is green-through-red rather than a sequential ramp — and the
 rating word is printed beside every coloured element, so nothing depends on
 telling green from red. Dark mode follows the OS.
 
-## Data
+## Data — four models, not one
 
 [Open-Meteo](https://open-meteo.com/) — free, keyless, no rate limit for
 personal use. Two endpoints merged on the hour: the Marine API for waves, sea
 temperature and sea level, and the Forecast API for wind, air temperature and
 sunrise/sunset.
+
+**Each is queried across several national models rather than one**, because a
+single model is a single opinion:
+
+| | Models |
+|---|---|
+| Waves | Open-Meteo blend · ECMWF WAM · DWD GWAM · Météo-France |
+| Wind & air | Open-Meteo blend · ECMWF · NOAA GFS · UK Met Office |
+
+The headline figure is the **median** across them — not the mean, so one model
+going badly wrong cannot drag the answer. The far more useful output is the
+**spread**: when the models disagree, the app says so ("4 models disagree
+sharply"), shows the surf as a range rather than a figure to one decimal place,
+and raises a flag. Forecasts diverge most at five days out, which is exactly
+when you are deciding whether to book time off.
+
+Everything else keyless is a single source; Met Office DataHub and StormGlass
+both need an API key, and a static site has nowhere to hide one.
 
 Tide state is derived from the modelled `sea_level_height_msl` series:
 normalised against the surrounding tidal cycle, differentiated for
