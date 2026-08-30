@@ -243,6 +243,12 @@ function renderBanners(fc) {
   if (state.error && fc) {
     banners.push({ icon: 'offline', text: `Showing saved data — ${state.error.message}` });
   }
+  if (fc?.missing?.length) {
+    banners.push({
+      icon: 'offline',
+      text: `Part of the forecast didn't load — no ${fc.missing.join(' or ')}. Everything else is live.`,
+    });
+  }
   if (fc?.stale || (fc && Date.now() - fc.fetchedAt > 6 * 3600e3)) {
     const age = Math.round((Date.now() - fc.fetchedAt) / 3600e3);
     banners.push({ icon: 'info', text: `Forecast is ${age}h old. Pull to refresh when you have signal.` });

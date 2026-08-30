@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import { seriesFor, consensus, agreement, agreementLabel, MARINE_MODEL_IDS } from '../js/sources.js';
 import { buildForecast, mergeHourly } from '../js/api.js';
 import { getSpot } from '../js/spots.js';
+import { getCraft } from '../js/craft.js';
+import { scoreHour } from '../js/scoring.js';
 
 test('seriesFor collects both bare and model-suffixed columns', () => {
   const block = {
@@ -181,4 +183,34 @@ test('mergeHourly tolerates an empty or failed second request', () => {
   const base = { hourly: { time: ['2026-08-30T06:00'], a: [1] } };
   assert.deepEqual(mergeHourly(base, {}).hourly.a, [1]);
   assert.deepEqual(mergeHourly(base, { hourly: {} }).hourly.a, [1]);
+});
+
+test('losing the sea request costs the sea data, not the whole forecast', () => {
+  // Splitting the marine call in two tripled the requests that can fail. With
+  // Promise.all, one failing threw away the other two — so a transient error
+  // on the sea endpoint left you with no forecast at all.
+  const times = ['2026-08-30T06:00', '2026-08-30T07:00'];
+  const waves = {
+    hourly: {
+      time: times,
+      wave_height_ecmwf_wam025: [1.0, 1.1],
+      swell_wave_period_ecmwf_wam025: [9, 9],
+      swell_wave_direction_ecmwf_wam025: [45, 45],
+    },
+  };
+  const land = {
+    hourly: { time: times, wind_speed_10m_ecmwf_ifs025: [8, 8], wind_direction_10m_ecmwf_ifs025: [250, 250] },
+    daily: { time: ['2026-08-30'], sunrise: ['2026-08-30T05:40'], sunset: ['2026-08-30T19:50'] },
+  };
+
+  // No mergeHourly call: this is what the code does when the sea request fails.
+  const fc = buildForecast(getSpot('longsands'), waves, land);
+
+  assert.ok(fc.hours[0].waveHeight > 0, 'waves must survive');
+  assert.equal(fc.hours[0].windKn, 8, 'wind must survive');
+  assert.ok(Number.isNaN(fc.hours[0].seaTemp), 'sea temp is the thing that is gone');
+  assert.ok(Number.isNaN(fc.hours[0].tideNorm), 'and the tide is unknown, not faked');
+
+  const r = scoreHour(fc.hours[0], getSpot('longsands'), getCraft('surf-kayak'));
+  assert.ok(Number.isFinite(r.score) && r.score > 0, 'and it still produces a usable score');
 });

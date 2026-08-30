@@ -88,13 +88,26 @@ export async function fetchSpotForecast(spot, { signal, days = FORECAST_DAYS } =
     models: WEATHER_MODEL_IDS.join(','),
   })}`;
 
-  const [waves, sea, land] = await Promise.all([
+  // allSettled, not all. Splitting the marine call in two tripled the number
+  // of requests that can fail, and with Promise.all any one of them failing
+  // threw away the other two. Waves and weather are load-bearing — without
+  // them there is no forecast — but losing the sea request should cost you the
+  // sea temperature and the tide, not the whole thing.
+  const [wavesR, seaR, landR] = await Promise.allSettled([
     getJson(waveUrl, signal),
     getJson(seaUrl, signal),
     getJson(landUrl, signal),
   ]);
 
-  return buildForecast(spot, mergeHourly(waves, sea), land);
+  if (wavesR.status === 'rejected') throw wavesR.reason;
+  if (landR.status === 'rejected') throw landR.reason;
+
+  const sea = seaR.status === 'fulfilled' ? seaR.value : null;
+  const marine = sea ? mergeHourly(wavesR.value, sea) : wavesR.value;
+
+  const forecast = buildForecast(spot, marine, landR.value);
+  if (!sea) forecast.missing = ['sea temperature', 'tide'];
+  return forecast;
 }
 
 /** Merge the two payloads into one hourly array. Exported so tests can feed it fixtures. */
@@ -258,6 +271,7 @@ export function writeCache(spotId, forecast) {
     localStorage.setItem(`${CACHE_KEY}:${spotId}`, JSON.stringify({
       fetchedAt: forecast.fetchedAt,
       spotId,
+      missing: forecast.missing || null,
       hours: forecast.hours.map((h) => ({ ...h, time: h.iso })),
       daily: [...forecast.daily.entries()].map(([k, v]) => [k, {
         sunrise: v.sunrise?.toISOString() ?? null,
