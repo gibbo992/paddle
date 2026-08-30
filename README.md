@@ -251,9 +251,18 @@ an hour of getting hammered**.
 
 The Now screen estimates it from data already fetched: how wide the surf zone
 is, how fast the craft covers it, how often a wave arrives while you are in
-there, and what each one costs. It reports a verdict (Easy → Brutal), roughly
-how many waves you will have to punch through, and how far out the break is.
-Above "Hard work" it also raises a safety flag.
+there, and what each one costs. It reports a verdict (Easy → Brutal) and a
+safety flag above "Hard work".
+
+Two kinds of number, kept visibly apart because they are not the same kind of
+fact. **Where it breaks and how often a wave arrives** belong to the beach and
+the swell, so they read the same whatever you are paddling. **How many reach
+you on the way out** does not — a slower boat is in the impact zone longer and
+meets more. The wave count therefore names the craft.
+
+The speeds are *making ground through surf*, not flat-water hull speed, and the
+gap between craft is deliberately narrow: what stops you on the way out is
+broken water, not drag.
 
 Crude — beach slope, bank shape and rips all matter and none are in the data —
 but the ranking is the useful part, and nothing else tells you at all.

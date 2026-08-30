@@ -45,10 +45,13 @@ export const CRAFT = [
     onshoreTolerance: 1.25,   // >1 = copes with more onshore slop than a board
     offshoreTolerance: 0.85,  // <1 = strong offshore hurts sooner than a board
     crossTolerance: 0.9,
-    // Getting out: long and fast, so it covers the surf zone quickly and cuts
-    // through broken water well — but there is no duck dive, so every wall has
-    // to be gone over or through.
-    paddleSpeed: 1.9,         // m/s making ground into the surf
+    // Getting out. These are speeds MAKING GROUND THROUGH SURF, which is not
+    // the same as flat-water hull speed and the gap between craft is much
+    // narrower: what stops you is broken water, not drag. An earlier version
+    // used something like the flat-water difference and had a surf kayak
+    // meeting five waves where a river boat met seven, which is too big a gap
+    // to be believable.
+    paddleSpeed: 1.6,         // m/s of ground made into the surf
     punchThrough: 1.5,        // metres of broken wave it handles before it hurts
     tooBigMsg: 'Over the size a surf kayak is any fun — getting out will be the whole session.',
     tooSmallMsg: 'Not enough to plane on, even in a surf kayak.',
@@ -72,10 +75,11 @@ export const CRAFT = [
     onshoreTolerance: 1.4,
     offshoreTolerance: 0.8,
     crossTolerance: 0.85,
-    // Short and slow, so it spends longer in the impact zone — but it is easy
-    // to tuck and roll through a wall rather than fight it.
-    paddleSpeed: 1.3,
-    punchThrough: 1.2,
+    // Slower over the ground, so slightly longer in the impact zone — but
+    // short and manoeuvrable, so it is easy to tuck and roll through a wall
+    // rather than fight it.
+    paddleSpeed: 1.35,
+    punchThrough: 1.35,
     tooBigMsg: 'Too big and too dumpy for a river boat — backloop and pinning territory.',
     tooSmallMsg: 'Nothing steep enough to pick a river boat up.',
   },
@@ -93,7 +97,7 @@ export const CRAFT = [
     crossTolerance: 1.0,
     // Slowest of the three over the ground, but a duck dive means big broken
     // waves cost far less than they do to anything you sit in.
-    paddleSpeed: 1.0,
+    paddleSpeed: 1.15,
     punchThrough: 2.2,
     tooBigMsg: 'Beyond an average session — big-wave gear and a lot of confidence.',
     tooSmallMsg: 'Flat. Nothing to stand up on.',

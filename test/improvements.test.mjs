@@ -190,3 +190,40 @@ test('data health names the field that went missing', () => {
   assert.ok(h.missing.includes('Sea level (tide)'));
   assert.ok(!h.missing.includes('Wave height'), 'the waves were fine');
 });
+
+test('the sea facts are the same whatever you are paddling', () => {
+  // Where the break is and how often a wave arrives are properties of the
+  // beach and the swell. Only how many reach YOU depends on the boat, and
+  // showing the two together without saying so read as a contradiction.
+  const opts = { hs: 1.2, period: 10 };
+  const outs = [surfKayak, wwKayak, board].map((craft) => paddleOut({ ...opts, craft }));
+
+  assert.equal(new Set(outs.map((o) => o.widthM)).size, 1, 'distance out must not vary by craft');
+  assert.equal(new Set(outs.map((o) => o.intervalS)).size, 1, 'wave interval must not vary by craft');
+});
+
+test('a slower craft meets more waves, by a believable margin', () => {
+  const opts = { hs: 1.2, period: 10 };
+  const sk = paddleOut({ ...opts, craft: surfKayak });
+  const ww = paddleOut({ ...opts, craft: wwKayak });
+
+  assert.ok(ww.secondsOut > sk.secondsOut, 'the slower boat is out there longer');
+  assert.ok(ww.waves >= sk.waves, 'so it meets at least as many');
+
+  // The gap should be a wave or two, not a different order of magnitude. An
+  // earlier version used flat-water speeds and had these 40% apart.
+  assert.ok(ww.waves - sk.waves <= 2,
+    `gap too wide to be believable: ${sk.waves} vs ${ww.waves}`);
+  assert.ok(ww.secondsOut / sk.secondsOut < 1.35,
+    'making ground through surf is limited by broken water, not hull speed');
+});
+
+test('anything breaking means at least one wave to get through', () => {
+  // A tiny sea crossed quickly used to round to zero waves, which reads as
+  // "nothing to get through" on a day that plainly has something.
+  const out = paddleOut({ hs: 0.35, period: 14, craft: surfKayak });
+  assert.ok(out.effort > 0);
+  assert.ok(out.waves >= 1, 'never claim a clear run when waves are breaking');
+
+  assert.equal(paddleOut({ hs: 0, period: 10, craft: surfKayak }).waves, 0);
+});
