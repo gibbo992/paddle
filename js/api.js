@@ -6,6 +6,7 @@
 
 import { parseLocal, dayKey } from './util.js';
 import { deriveTide, findExtremes, tideRegime } from './tide.js';
+import { annotateTrend } from './trend.js';
 import {
   MARINE_MODEL_IDS, WEATHER_MODEL_IDS, seriesFor, consensus, agreement,
 } from './sources.js';
@@ -185,6 +186,7 @@ export function buildForecast(spot, marine, land) {
     h.tideState = tide[i].state;
     h.tideRangeM = tide[i].rangeM;
   });
+  annotateTrend(hours);
 
   return {
     spotId: spot.id,
@@ -193,7 +195,40 @@ export function buildForecast(spot, marine, land) {
     daily,
     tideEvents: findExtremes(hours),
     tideRegime: tideRegime(hours),
+    health: dataHealth(hours),
     units: { wave: 'm', wind: 'kn', temp: '°C' },
+  };
+}
+
+/**
+ * Which fields actually came back, and from how many models.
+ *
+ * Two bugs in two days came from the payload not being the shape assumed, and
+ * both presented as a quiet blank rather than an error. This makes the answer
+ * checkable without a debugger.
+ */
+const HEALTH_FIELDS = [
+  ['waveHeight', 'Wave height'],
+  ['swellPeriod', 'Swell period'],
+  ['swellDirection', 'Swell direction'],
+  ['seaLevel', 'Sea level (tide)'],
+  ['seaTemp', 'Sea temperature'],
+  ['windKn', 'Wind speed'],
+  ['windDirection', 'Wind direction'],
+  ['airTemp', 'Air temperature'],
+];
+
+export function dataHealth(hours) {
+  const total = hours.length;
+  const fields = HEALTH_FIELDS.map(([key, label]) => {
+    const present = hours.reduce((n, h) => n + (Number.isFinite(h[key]) ? 1 : 0), 0);
+    return { key, label, present, total, ok: present > total * 0.5 };
+  });
+  return {
+    fields,
+    hours: total,
+    models: hours.length ? Math.max(...hours.map((h) => h.modelCount || 0)) : 0,
+    missing: fields.filter((f) => !f.ok).map((f) => f.label),
   };
 }
 

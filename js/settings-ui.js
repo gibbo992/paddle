@@ -15,7 +15,8 @@ const el = (tag, cls, text) => {
 
 function section(title) {
   const h = el('h3', null, title);
-  h.style.cssText = 'font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin:22px 0 10px';
+  // Sentence case, matching the rest of the app after the typography pass.
+  h.style.cssText = 'font-size:var(--fs-sm);font-weight:var(--fw-med);color:var(--text-secondary);margin:var(--sp-6) 0 var(--sp-3)';
   return h;
 }
 
@@ -115,6 +116,10 @@ export function renderSettings(root, ctx) {
 
   // ---- actions
   root.append(section('Data'));
+  const health = el('div');
+  health.style.marginBottom = '14px';
+  ctx.renderHealth(health);
+  root.append(health);
   const reload = el('button', 'btn btn--ghost', 'Refresh forecast now');
   reload.addEventListener('click', async () => {
     reload.disabled = true;

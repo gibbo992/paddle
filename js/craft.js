@@ -45,6 +45,11 @@ export const CRAFT = [
     onshoreTolerance: 1.25,   // >1 = copes with more onshore slop than a board
     offshoreTolerance: 0.85,  // <1 = strong offshore hurts sooner than a board
     crossTolerance: 0.9,
+    // Getting out: long and fast, so it covers the surf zone quickly and cuts
+    // through broken water well — but there is no duck dive, so every wall has
+    // to be gone over or through.
+    paddleSpeed: 1.9,         // m/s making ground into the surf
+    punchThrough: 1.5,        // metres of broken wave it handles before it hurts
     tooBigMsg: 'Over the size a surf kayak is any fun — getting out will be the whole session.',
     tooSmallMsg: 'Not enough to plane on, even in a surf kayak.',
   },
@@ -67,6 +72,10 @@ export const CRAFT = [
     onshoreTolerance: 1.4,
     offshoreTolerance: 0.8,
     crossTolerance: 0.85,
+    // Short and slow, so it spends longer in the impact zone — but it is easy
+    // to tuck and roll through a wall rather than fight it.
+    paddleSpeed: 1.3,
+    punchThrough: 1.2,
     tooBigMsg: 'Too big and too dumpy for a river boat — backloop and pinning territory.',
     tooSmallMsg: 'Nothing steep enough to pick a river boat up.',
   },
@@ -82,6 +91,10 @@ export const CRAFT = [
     onshoreTolerance: 1.0,
     offshoreTolerance: 1.0,
     crossTolerance: 1.0,
+    // Slowest of the three over the ground, but a duck dive means big broken
+    // waves cost far less than they do to anything you sit in.
+    paddleSpeed: 1.0,
+    punchThrough: 2.2,
     tooBigMsg: 'Beyond an average session — big-wave gear and a lot of confidence.',
     tooSmallMsg: 'Flat. Nothing to stand up on.',
   },

@@ -241,6 +241,46 @@ Other details worth knowing:
 Breaking face height is shown as roughly 1.4 × significant wave height, which is
 what you'd call it standing on the beach.
 
+## Getting out
+
+Every surf forecast scores the wave. For a kayak the hard part is often the
+paddle out — there is no duck dive, you have four metres of boat to get through
+a broken wall, and set waves arrive on a schedule a wave height cannot tell you
+about. 1.5 m at 12 s is a pleasant paddle out; **the same height at 6 s is half
+an hour of getting hammered**.
+
+The Now screen estimates it from data already fetched: how wide the surf zone
+is, how fast the craft covers it, how often a wave arrives while you are in
+there, and what each one costs. It reports a verdict (Easy → Brutal), roughly
+how many waves you will have to punch through, and how far out the break is.
+Above "Hard work" it also raises a safety flag.
+
+Crude — beach slope, bank shape and rips all matter and none are in the data —
+but the ranking is the useful part, and nothing else tells you at all.
+
+## Logging what you actually found
+
+The weakest part of this app is not the code, it is the spot table: those swell
+windows and tide bands are published estimates at best, and outright guesses at
+Cullercoats. No care in the scoring fixes a wrong shelter factor.
+
+So log it. After a session, tap what you actually found on the Now screen. Once
+there are three or more at a spot the app tells you how far out it reads and
+names the change:
+
+> Over 5 sessions Cullercoats reads about 1.6 too high. Try changing its
+> shelter from 0.78 to 0.71 in `js/spots.js`.
+
+That is real evidence about your beaches, which is the one thing this app
+cannot get from an API. Stored in your browser only.
+
+## Data health
+
+**Settings → Data** lists every field, whether it arrived, and from how many
+models. Two bugs came from the payload not being the shape assumed, and both
+showed up as a quiet blank rather than an error — this makes that class of
+problem visible in seconds.
+
 ## Look and feel
 
 Styled to sit alongside RiverPredictor, which the Rivers tab embeds: light

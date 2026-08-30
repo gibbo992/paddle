@@ -14,6 +14,7 @@ import { iconHtml } from './icons.js';
 import { renderRivers, measureRivers } from './rivers.js';
 import { renderSettings } from './settings-ui.js';
 import { demoForecast, isDemo } from './demo.js';
+import { addSession, loadSessions, tuningAdvice } from './sessionlog.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -26,6 +27,7 @@ const state = {
   selected: null,         // hour the user tapped, or null for "now"
   loading: false,
   error: null,
+  justLogged: null,   // rating label, shown once after tapping
 };
 
 // --- helpers ---------------------------------------------------------------
@@ -203,8 +205,34 @@ function render() {
   $('partsCard').hidden = false;
   ui.renderParts($('partsList'), $('partsExplain'), $('partsLimiting'), { res, spot, craft });
 
+  // Getting out — computed before the flags so a hard paddle out can raise one.
+  $('paddleOutCard').hidden = false;
+  const out = ui.renderPaddleOut($('paddleOut'), { res, craft });
+
+  const flags = safetyFlags({ scored: res, hour, spot, craft, regime });
+  if (out.effort >= 8) {
+    flags.unshift({
+      level: out.effort >= 14 ? 'critical' : 'serious',
+      code: 'paddle-out',
+      text: `Getting out is ${out.label.toLowerCase()} — roughly ${out.waves} waves to punch through.`,
+    });
+  }
   $('flagsCard').hidden = false;
-  ui.renderFlags($('flagsList'), safetyFlags({ scored: res, hour, spot, craft, regime }));
+  ui.renderFlags($('flagsList'), flags);
+
+  // Log what you actually found, so the spot table can be tuned on evidence.
+  $('logCard').hidden = false;
+  ui.renderLogger($('logger'), {
+    spot, craft, res,
+    advice: tuningAdvice(spot),
+    logged: state.justLogged,
+    onLog: (opt) => {
+      addSession({ spotId: spot.id, craftId: craft.id, predicted: res.score, actual: opt.score });
+      state.justLogged = opt.label.toLowerCase();
+      render();
+      setTimeout(() => { state.justLogged = null; render(); }, 6000);
+    },
+  });
 
   $('kitCard').hidden = false;
   ui.renderKit($('kitSuit'), $('kitExtras'), $('kitChill'), $('kitNote'),
@@ -350,6 +378,7 @@ function openSettings() {
       return state.calStatus;
     },
     listCalendars: () => cal.listCalendars(state.settings.google.clientId),
+    renderHealth: (node) => ui.renderHealth(node, forecast()),
     onSignOut() {
       cal.clearToken();
       state.busy = [];
