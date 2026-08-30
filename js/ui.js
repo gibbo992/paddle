@@ -7,6 +7,9 @@ import {
 import { iconHtml } from './icons.js';
 import { ratingFor, RATINGS } from './scoring.js';
 import { agreementLabel } from './sources.js';
+import { paddleOut } from './paddleout.js';
+import { trendWord, trendArrow } from './trend.js';
+import { ACTUAL_OPTIONS } from './sessionlog.js';
 
 /**
  * Score → colour, on a traffic-light STATUS scale rather than a sequential
@@ -117,7 +120,9 @@ export function renderStats(grid, { res, hour, units, tideRegime }) {
   // Ordered by how much each one decides whether you go.
   // When the models disagree, say by how much rather than quoting one figure
   // to a decimal place as if it were settled.
-  let surfSub = 'face';
+  let surfSub = trendWord(hour.trend)
+    ? `${trendArrow(hour.trend)} ${trendWord(hour.trend)}`
+    : 'face';
   if (Number.isFinite(hour.waveSpread) && hour.waveSpread > 0.2 && Number.isFinite(res.exposure)) {
     const lo = (res.hs - (hour.waveSpread * res.exposure) / 2) * res.faceFactor;
     const hi = (res.hs + (hour.waveSpread * res.exposure) / 2) * res.faceFactor;
@@ -133,6 +138,75 @@ export function renderStats(grid, { res, hour, units, tideRegime }) {
     stat('Air', fmtTemp(hour.airTemp),
       Number.isFinite(hour.apparentTemp) ? `feels ${fmtTemp(hour.apparentTemp)}` : ''),
   );
+}
+
+/** Getting out — the bit every other forecast leaves you to guess. */
+export function renderPaddleOut(root, { res, craft }) {
+  const out = paddleOut({ hs: res.hs, period: res.period, craft });
+  root.replaceChildren();
+
+  const head = el('div', 'paddleout__head');
+  const pill = el('span', 'pill', out.label);
+  pill.dataset.tone = out.tone;
+  head.append(pill, el('span', 'paddleout__detail',
+    out.effort > 0 ? `about ${out.waves} wave${out.waves === 1 ? '' : 's'} to get through, ${out.widthM} m out` : 'nothing breaking'));
+
+  root.append(head, el('p', 'paddleout__note', out.note));
+  return out;
+}
+
+/** Log what you actually found, so the spot table can be tuned on evidence. */
+export function renderLogger(root, { spot, craft, res, advice, logged, onLog }) {
+  root.replaceChildren();
+
+  if (logged) {
+    root.append(el('p', 'muted', `Logged — you found it ${logged}. Thanks, that tunes ${spot.short}.`));
+    return;
+  }
+
+  root.append(el('p', 'muted',
+    `Been out at ${spot.short}? The app said ${res.score.toFixed(1)}. What did you actually find?`));
+
+  const row = el('div', 'chiprow');
+  for (const opt of ACTUAL_OPTIONS) {
+    const b = el('button', 'chip chip--tap', opt.label);
+    b.type = 'button';
+    b.addEventListener('click', () => onLog(opt));
+    row.append(b);
+  }
+  root.append(row);
+
+  if (advice?.text) {
+    const n = el('p', 'muted');
+    n.style.marginTop = '12px';
+    n.textContent = advice.text;
+    root.append(n);
+  }
+}
+
+/** What actually came back from the API this fetch. */
+export function renderHealth(root, forecast) {
+  root.replaceChildren();
+  const health = forecast?.health;
+  if (!health) {
+    root.append(el('p', 'field__hint', 'No forecast loaded yet.'));
+    return;
+  }
+
+  const age = Math.round((Date.now() - forecast.fetchedAt) / 60000);
+  root.append(el('p', 'field__hint',
+    `${health.hours} hours, up to ${health.models} model${health.models === 1 ? '' : 's'} per value, `
+    + `fetched ${age < 1 ? 'just now' : `${age} min ago`}.`));
+
+  const list = el('div', 'health');
+  for (const f of health.fields) {
+    const row = el('div', 'health__row');
+    row.append(iconEl(f.ok ? 'good' : 'warning', `health__icon health__icon--${f.ok ? 'ok' : 'bad'}`));
+    row.append(el('span', null, f.label));
+    row.append(el('span', 'health__count', `${f.present}/${f.total}`));
+    list.append(row);
+  }
+  root.append(list);
 }
 
 function tidePct(norm) {
