@@ -168,10 +168,27 @@ Note those guides describe what a **board** wants. The craft profiles in
 `craft.js` re-score it for a boat; a spot's swell window, shelter and tide
 preference are properties of the beach and hold whatever you are paddling.
 
-`facing` is set from the reported **offshore wind** rather than from the
-geometry of the beach, because that is the job it does in the model. In a bay
-sheltered by a headland the best wind is not square to the sand, so taking it
-from the guide beats taking it from a map.
+`facing` is **geographic**, cross-checked against the guides' reported winds.
+An earlier version derived it purely from the reported "best wind" on the
+reasoning that the best wind is what the model actually uses. That was wrong:
+those values are a single coarse compass point, and taken literally they put
+Seaton Sluice at 23° and Blyth at 113° — 90° apart, for two beaches four
+kilometres apart on a coast that faces east throughout. A northerly then read
+as *onshore* at Seaton and *offshore* at Blyth, which is exactly backwards.
+Where a source disagrees with the map, the map wins, and the guide's wind stays
+in the comment so the disagreement is visible.
+
+`blocking` handles what a single `facing` and `shelter` cannot: a pier or
+headland that shadows one arc of swell. Blyth is the case that forced it — the
+harbour pier "can clean up a northerly swell but does tend to cut the size", so
+Blyth is a full-size open beach on a NE swell and a poor relation on a
+northerly. On a true northerly the app now sends you to Seaton Sluice, which
+faces further north-east with nothing in the way.
+
+`test/spots-geometry.test.mjs` holds this together: it checks the facings are
+possible for this coast, that neighbours don't face wildly different ways, that
+a north wind is never offshore on an east-facing coast, and that no two spots
+respond identically to every swell direction.
 
 ## Tuning the spots
 

@@ -14,11 +14,22 @@
 //               app exists to fill, but it does mean nobody has published
 //               numbers for it.
 //
-// `facing` is set from the REPORTED OFFSHORE WIND rather than from the
-// geometry of the beach, because that is the job it does in the model: it
-// defines which way the wind has to blow to be groomed. In a bay sheltered by
-// a headland the best wind is not always square to the sand, so deriving it
-// from the guide is more accurate than deriving it from a map.
+// `facing` is the bearing the beach looks out along. An earlier version derived
+// it purely from each guide's reported "best wind", on the reasoning that the
+// best wind is the thing the model actually uses. That was wrong, because those
+// reported values are a single coarse compass point and taking them literally
+// produced orientations that cannot coexist: Seaton Sluice at 23° (facing NNE)
+// and Blyth at 113° (facing ESE), 90° apart for two beaches four kilometres
+// apart on a coast that faces east throughout. It made a northerly read as
+// onshore at Seaton and offshore at Blyth, which is backwards.
+//
+// Facings are now geographic, cross-checked against the reported winds, and sit
+// in a narrow band that rotates gently northward up the coast. Where a source
+// disagrees with the map, the map wins — but the guide's wind is recorded in
+// the comment so the disagreement stays visible.
+//
+// `blocking` handles what `facing` cannot: a pier or headland that shadows one
+// arc of swell. Blyth's harbour pier is the case that forced it.
 //
 //   facing       bearing the wind must come FROM, minus 180 — i.e. offshore
 //                is `facing + 180`
@@ -84,7 +95,9 @@ export const SPOTS = [
     confidence: 'sourced',
     // Guide: NE-facing cove sheltered by cliffs, ideal swell NNE, offshore W,
     // best around LOW tide.
-    facing: 90,
+    // Guide reports W offshore; the cove is described as NE-facing and the map
+    // agrees. Split the difference toward the map.
+    facing: 72,
     swellWindow: { from: 350, to: 100, best0: 5, best1: 60 },
     shelter: 0.68,
     tide: { ok0: 0.0, best0: 0.05, best1: 0.45, ok1: 0.75 },
@@ -107,8 +120,10 @@ export const SPOTS = [
     // NNE swell, SW offshore (225°), works across the tide. The most
     // consistent beach of the group — a broad bay that picks up more swell
     // than its neighbours and breaks over several banks.
-    facing: 45,
-    swellWindow: { from: 325, to: 120, best0: 345, best1: 70 },
+    // Guide reports SW offshore (225°), which would put the beach at 45° — too
+    // far north for a bay that runs north–south. Map orientation used.
+    facing: 75,
+    swellWindow: { from: 330, to: 120, best0: 350, best1: 75 },
     shelter: 0.98,
     tide: { ok0: 0.0, best0: 0.15, best1: 0.9, ok1: 1.0 },
     prefersPush: false,
@@ -131,7 +146,7 @@ export const SPOTS = [
     // The only reef on this stretch, and the best wave on it. NNE swell but
     // takes anything from N through E; W offshore, tolerating NW–SW. Mid to
     // high water, on the push. Flat rock shelf, breaks both ways.
-    facing: 90,
+    facing: 78,
     swellWindow: { from: 330, to: 130, best0: 345, best1: 100 },
     // Above 1: a reef focuses swell rather than sheltering from it, which is
     // why it starts working under a metre when the beaches are still flat.
@@ -158,17 +173,20 @@ export const SPOTS = [
     lon: -1.4740,
     confidence: 'sourced',
     // Guide: ideal swell NNE, offshore SSW, best around MID tide.
-    facing: 23,
-    swellWindow: { from: 325, to: 115, best0: 345, best1: 70 },
+    // The most north-east-facing beach of the group, and the one with the
+    // clearest look at a northerly — nothing shadows it from that quarter.
+    // Guide reports SSW offshore (203°); the map says nearer NE-facing.
+    facing: 60,
+    swellWindow: { from: 315, to: 115, best0: 340, best1: 70 },
     shelter: 0.93,
     tide: { ok0: 0.1, best0: 0.3, best1: 0.7, ok1: 0.95 },
     prefersPush: false,
     dirWeight: 1.2,
     tideWeight: 1.1,
     hazards: ['Harbour mouth and rocks at the Collywell Bay end'],
-    notes: 'Reasonably exposed beach break between Whitley and Blyth. NNE swell, ' +
-      'SSW offshore, best around mid tide. Inconsistent — small far more often ' +
-      'than not, which suits a boat better than a board.',
+    notes: 'Reasonably exposed beach break between Whitley and Blyth, facing further ' +
+      'north-east than its neighbours. Best around mid tide. Nothing shadows it ' +
+      'from the north, so on a northerly it sees more swell than Blyth does.',
   },
   {
     id: 'blyth',
@@ -179,18 +197,29 @@ export const SPOTS = [
     confidence: 'sourced',
     // Guide: ideal swell NNE, takes N through ENE round to SE, offshore W/WNW,
     // best around HIGH tide with a rising tide generally better.
-    facing: 113,
-    swellWindow: { from: 320, to: 135, best0: 345, best1: 70 },
+    // Sources disagree on the offshore: one says WNW, another SSW–WSW. The
+    // beach runs north–south and faces east, so offshore is about W.
+    facing: 88,
+    // Clipped at the north end: the harbour pier is in the way — see `blocking`.
+    swellWindow: { from: 345, to: 135, best0: 25, best1: 80 },
     shelter: 1.0,
     tide: { ok0: 0.25, best0: 0.6, best1: 1.0, ok1: 1.0 },
     prefersPush: true,
     dirWeight: 1.0,
     tideWeight: 1.1,
+    // "The huge pier at the north end can clean up a northerly swell but does
+    // tend to cut the size." Exactly the case a single shelter multiplier
+    // cannot express: it depends which way the swell is coming from.
+    blocking: [{
+      from: 320, to: 35, factor: 0.55,
+      why: 'the harbour pier shadows it from the north',
+    }],
     hazards: ['Rip along the pier', 'Shipping in and out of the harbour',
       'Poor water quality — try not to swallow it'],
-    notes: 'The widest swell window on this stretch — takes anything from N round ' +
-      'to SE — and usually a touch bigger than the Tynemouth beaches. Best near ' +
-      'high water and better still on a rising tide. W or WNW is the offshore.',
+    notes: 'Long open sand facing east, with the harbour piers at the north end. ' +
+      'Best near high water and better still on a rising tide. The pier tidies a ' +
+      'northerly up but cuts it down — on a true northerly, Seaton Sluice has the ' +
+      'cleaner look at it.',
   },
 ];
 

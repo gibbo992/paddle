@@ -268,8 +268,11 @@ export function renderParts(list, explain, noteEl, { res, spot, craft }) {
 
   const bits = [];
   if (spot.shelter < 0.98 || res.exposure < 0.9) {
+    const cause = res.blocked
+      ? `once ${res.blocked} and the swell angle have taken their cut`
+      : 'once the headland and the swell angle have taken their cut';
     bits.push(`${spot.short} sees about ${Math.round(res.exposure * 100)}% of the open-coast swell `
-      + `(${fmtHeight(res.openCoastHs, { height: 'm' })} out at sea) once the headland and the swell angle have taken their cut.`);
+      + `(${fmtHeight(res.openCoastHs, { height: 'm' })} out at sea) ${cause}.`);
   }
   bits.push(`Scored for a ${craft.name.toLowerCase()} — ${craft.blurb.toLowerCase()}.`);
   explain.textContent = bits.join(' ');
