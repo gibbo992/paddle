@@ -98,6 +98,18 @@ export function scoreWind(windKn, windFromDeg, spot, craft) {
   };
 }
 
+/**
+ * Anything shadowing this swell direction — a harbour pier, a headland.
+ * @returns {{factor:number, why:string|null}}
+ */
+export function blockingFor(swellFromDeg, spot) {
+  if (!Number.isFinite(swellFromDeg) || !spot.blocking?.length) return { factor: 1, why: null };
+  for (const b of spot.blocking) {
+    if (inArc(swellFromDeg, b.from, b.to)) return { factor: b.factor, why: b.why };
+  }
+  return { factor: 1, why: null };
+}
+
 /** How well the swell direction lines up with this spot's window. */
 export function scoreSwellDirection(swellFromDeg, spot) {
   if (!Number.isFinite(swellFromDeg)) return 0.5;
@@ -145,13 +157,20 @@ export function scoreHour(h, spot, craft) {
 
   const dirScore = scoreSwellDirection(swellDir, spot);
 
-  // How much of the open-coast swell actually reaches the sand. Two effects,
-  // both real and both multiplying the height: the headlands and piers that
-  // shelter the bay at all times, and how square the swell is to the window.
-  // A swell from outside the window does not arrive small — it does not arrive.
-  // Attenuating height (rather than just docking points) is what makes an
-  // out-of-window day read as flat instead of mediocre.
-  const exposure = spot.shelter * clamp(dirScore, 0.02, 1) ** 0.6;
+  // A pier or headland that shadows one arc of swell. `shelter` is a constant,
+  // so it cannot say "this beach is open except from the north" — which is
+  // exactly Blyth, where the harbour pier tidies a northerly up but cuts it
+  // down. Blocking applies to height, because that is what it takes away.
+  const block = blockingFor(swellDir, spot);
+
+  // How much of the open-coast swell actually reaches the sand. Three effects,
+  // all real and all multiplying the height: the headlands that shelter the
+  // beach at all times, anything shadowing this particular swell direction,
+  // and how square the swell is to the window. A swell from outside the window
+  // does not arrive small — it does not arrive. Attenuating height (rather
+  // than just docking points) is what makes an out-of-window day read as flat
+  // instead of mediocre.
+  const exposure = spot.shelter * block.factor * clamp(dirScore, 0.02, 1) ** 0.6;
   const hs = Number.isFinite(h.waveHeight) ? h.waveHeight * exposure : NaN;
 
   const sizeScore = bandScore(hs, craft.size.a, craft.size.b, craft.size.c, craft.size.d, 0.30);
@@ -244,6 +263,7 @@ export function scoreHour(h, spot, craft) {
     wind,
     hs,
     exposure,
+    blocked: block.why,
     openCoastHs: Number.isFinite(h.waveHeight) ? h.waveHeight : NaN,
     faceFactor: faceFactor(period),
     faceM: Number.isFinite(hs) ? hs * faceFactor(period) : NaN,
