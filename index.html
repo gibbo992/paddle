@@ -112,6 +112,13 @@
         <h2 class="card__title">Next 7 days</h2>
         <span class="card__note" id="forecastNote"></span>
       </div>
+      <div class="segmented segmented--inline" id="forecastMode" role="group" aria-label="Forecast layout">
+        <button type="button" data-mode="week" aria-pressed="true">All spots</button>
+        <button type="button" data-mode="hourly" aria-pressed="false">Hour by hour</button>
+      </div>
+
+      <div id="weekWrap"></div>
+
       <div class="spotrow" id="spotRowForecast" role="group" aria-label="Spot"></div>
       <div id="days"><div class="skeleton" style="height:80px"></div></div>
       <div class="legend">

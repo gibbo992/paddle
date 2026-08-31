@@ -10,6 +10,7 @@ import { agreementLabel } from './sources.js';
 import { paddleOut } from './paddleout.js';
 import { trendWord, trendArrow } from './trend.js';
 import { ACTUAL_OPTIONS } from './sessionlog.js';
+import { weekGrid, BLOCKS } from './week.js';
 
 /**
  * Score → colour, on a traffic-light STATUS scale rather than a sequential
@@ -197,6 +198,72 @@ export function renderLogger(root, { spot, craft, res, advice, logged, onLog }) 
     n.textContent = advice.text;
     root.append(n);
   }
+}
+
+/**
+ * The week as a grid — spots down, days across. Laid out to sit beside the
+ * same view in other forecast apps, so the two can be compared line by line.
+ */
+export function renderWeek(root, { forecasts, spots, craft, units, now, onPick }) {
+  root.replaceChildren();
+  const { days, rows } = weekGrid(forecasts, spots, craft, { now, units });
+
+  if (!days.length || !rows.length) {
+    root.append(el('div', 'empty', 'No forecast loaded yet.'));
+    return;
+  }
+
+  const table = el('div', 'week');
+  table.style.setProperty('--week-cols', days.length);
+
+  // Header: a blank corner, then the days.
+  const head = el('div', 'week__row week__row--head');
+  head.append(el('div', 'week__spot'));
+  for (const d of days) {
+    const c = el('div', `week__day${d.isToday ? ' week__day--today' : ''}`);
+    c.append(el('div', 'week__dayname', d.label), el('div', 'week__daynum', String(d.dayNum)));
+    head.append(c);
+  }
+  table.append(head);
+
+  for (const row of rows) {
+    const tr = el('div', 'week__row');
+    const name = el('button', 'week__spot week__spot--btn');
+    name.type = 'button';
+    name.textContent = row.spot.short;
+    name.addEventListener('click', () => onPick(row.spot.id));
+    tr.append(name);
+
+    for (const cell of row.cells) {
+      const c = el('div', `week__cell${cell.isPick ? ' week__cell--pick' : ''}`);
+      c.append(el('div', 'week__size', cell.size));
+
+      // Three segments: morning, middle, evening. Same shape as the app you
+      // are comparing against, but scored for the boat rather than a board.
+      const bar = el('div', 'week__bar');
+      for (const b of cell.blocks) {
+        const seg = el('span', 'week__seg');
+        seg.style.background = Number.isFinite(b.score) ? `var(--score-${b.tone})` : 'var(--surface-3)';
+        seg.title = b.label ? `${b.label}: ${Number.isFinite(b.score) ? b.score.toFixed(1) : '--'}` : '';
+        bar.append(seg);
+      }
+      c.append(bar);
+
+      if (Number.isFinite(cell.best)) {
+        c.append(el('div', 'week__best', cell.best.toFixed(1)));
+      }
+      tr.append(c);
+    }
+    table.append(tr);
+  }
+
+  root.append(table);
+
+  const key = el('div', 'legend');
+  for (const b of BLOCKS) key.append(el('span', 'legend__item', b.label));
+  key.append(el('span', 'legend__unit',
+    `Face height in ${units.height === 'ft' ? 'feet' : 'metres'} · best score per day`));
+  root.append(key);
 }
 
 /** What actually came back from the API this fetch. */
