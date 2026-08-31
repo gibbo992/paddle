@@ -258,6 +258,19 @@ Other details worth knowing:
 Breaking face height is shown as roughly 1.4 × significant wave height, which is
 what you'd call it standing on the beach.
 
+## The week at a glance
+
+**Forecast → All spots** lays every beach against every day — size band, a
+three-segment bar for morning / middle / evening, and the day's best score,
+with the pick of the day highlighted. Deliberately the same shape as the
+favourites grid in other forecast apps, so the two screens can be held side by
+side and compared line by line. The difference is that these are scored for the
+boat you picked, not for a shortboard.
+
+The size band is the **middle half** of the daylight hours, not the extremes —
+min-to-max across fourteen hours catches one dead dawn hour and one dusk peak
+and reports "1–4 ft" for a day that is 2 ft almost throughout.
+
 ## Getting out
 
 Every surf forecast scores the wave. For a kayak the hard part is often the

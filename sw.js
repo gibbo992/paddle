@@ -29,6 +29,7 @@ const ASSETS = [
   'js/trend.js',
   'js/ui.js',
   'js/util.js',
+  'js/week.js',
   'js/windows.js',
   'manifest.webmanifest',
   'assets/icon.svg',

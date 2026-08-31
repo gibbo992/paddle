@@ -492,3 +492,45 @@ body.rivers-open { overflow: hidden; }
 /* Sea facts sit below the craft-specific verdict and read quieter, so the two
    kinds of number are not mistaken for each other. */
 .paddleout__sea { font-size: var(--fs-xs); line-height: var(--lh-sm); color: var(--text-muted); margin: var(--sp-2) 0 0; }
+
+/* ---------- week grid ---------- */
+
+.segmented--inline { width: 100%; margin-bottom: var(--sp-4); border-top: 0; border-bottom: 1px solid var(--hairline); }
+.segmented--inline button { min-height: 38px; }
+
+/* Spot label column plus one equal column per day. Scrolls as one block, so
+   the rows stay aligned however narrow the screen is. */
+.week { display: grid; grid-template-columns: 84px repeat(var(--week-cols, 6), minmax(46px, 1fr)); gap: 0; }
+.week__row { display: contents; }
+
+.week__spot {
+  display: flex; align-items: center;
+  font-size: var(--fs-sm); font-weight: var(--fw-med);
+  padding: var(--sp-3) var(--sp-2) var(--sp-3) 0;
+  border-bottom: 1px solid var(--hairline);
+  text-align: left; background: none; border-left: 0; border-right: 0; border-top: 0;
+}
+.week__spot--btn { cursor: pointer; color: var(--text-primary); }
+.week__spot--btn:active { background: var(--surface-2); }
+
+.week__day {
+  text-align: center; padding: 0 0 var(--sp-3);
+  border-bottom: 1px solid var(--hairline);
+}
+.week__dayname { font-size: var(--fs-xs); color: var(--text-muted); }
+.week__daynum { font-size: var(--fs-sm); font-weight: var(--fw-med); font-variant-numeric: tabular-nums; }
+.week__day--today .week__dayname,
+.week__day--today .week__daynum { color: var(--accent); font-weight: var(--fw-med); }
+
+.week__cell {
+  display: flex; flex-direction: column; align-items: center; gap: var(--sp-1);
+  padding: var(--sp-3) 2px; border-bottom: 1px solid var(--hairline);
+}
+.week__cell--pick { background: var(--surface-2); border-radius: var(--r-sm); }
+.week__size { font-size: var(--fs-sm); font-weight: var(--fw-med); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.week__bar { display: flex; gap: 2px; width: 100%; max-width: 42px; }
+.week__seg { flex: 1; height: 6px; border-radius: 2px; }
+.week__best { font-size: var(--fs-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+.week__row--head .week__spot { border-bottom-color: var(--divider); }
+.week__row--head .week__day { border-bottom-color: var(--divider); }

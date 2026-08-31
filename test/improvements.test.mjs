@@ -7,6 +7,7 @@ import {
   addSession, loadSessions, clearSessions, biasFor, tuningAdvice, ACTUAL_OPTIONS, MIN_SESSIONS,
 } from '../js/sessionlog.js';
 import { dataHealth } from '../js/api.js';
+import { weekGrid, sizeBand } from '../js/week.js';
 import { getCraft } from '../js/craft.js';
 import { getSpot } from '../js/spots.js';
 
@@ -227,3 +228,81 @@ test('anything breaking means at least one wave to get through', () => {
 
   assert.equal(paddleOut({ hs: 0, period: 10, craft: surfKayak }).waves, 0);
 });
+
+// --- week grid -------------------------------------------------------------
+
+test('the size band matches the shape other forecasts print', () => {
+  const ft = { height: 'ft' };
+  // Values in metres; the band is rendered in feet.
+  assert.equal(sizeBand(0.10, 0.20, ft), 'Flat');
+  assert.equal(sizeBand(0.20, 0.45, ft), '0–2');
+  assert.equal(sizeBand(0.40, 0.60, ft), '1–2');
+  assert.equal(sizeBand(0.9, 1.4, ft), '2–5');
+  assert.equal(sizeBand(NaN, NaN, ft), '--');
+
+  // Metric users get a metric band, not a converted one.
+  assert.equal(sizeBand(0.6, 0.9, { height: 'm' }), '0.5–1.0');
+});
+
+test('the band never collapses to a single number', () => {
+  const ft = { height: 'ft' };
+  const b = sizeBand(0.31, 0.32, ft);
+  assert.match(b, /–/, `expected a range, got ${b}`);
+});
+
+test('the week grid puts every spot against every day', () => {
+  const now = new Date(2026, 8, 1, 9, 0);
+  const forecasts = new Map();
+  const spots = [getSpot('longsands'), getSpot('blyth'), getSpot('seaton-sluice')];
+  for (const s of spots) forecasts.set(s.id, makeWeekForecast(s.id, now));
+
+  const grid = weekGrid(forecasts, spots, surfKayak, { now, units: { height: 'ft' } });
+
+  assert.equal(grid.rows.length, 3);
+  assert.ok(grid.days.length >= 2);
+  assert.equal(grid.days[0].label, 'Today');
+  for (const row of grid.rows) {
+    assert.equal(row.cells.length, grid.days.length, 'every spot needs a cell per day');
+    for (const cell of row.cells) {
+      assert.equal(cell.blocks.length, 3, 'morning, middle and evening');
+      assert.ok(typeof cell.size === 'string');
+    }
+  }
+});
+
+test('exactly one spot is picked out per day, and only if it is worth it', () => {
+  const now = new Date(2026, 8, 1, 9, 0);
+  const spots = [getSpot('longsands'), getSpot('blyth')];
+  const forecasts = new Map(spots.map((s) => [s.id, makeWeekForecast(s.id, now)]));
+  const grid = weekGrid(forecasts, spots, surfKayak, { now, units: { height: 'ft' } });
+
+  grid.days.forEach((_, i) => {
+    const picks = grid.rows.filter((r) => r.cells[i].isPick);
+    assert.ok(picks.length <= 1, 'at most one pick per day');
+    if (picks.length) assert.ok(picks[0].cells[i].best >= 4, 'never highlight a day not worth going');
+  });
+});
+
+/** A small forecast shaped like the real one, for grid tests. */
+function makeWeekForecast(spotId, from) {
+  const hours = [];
+  const daily = new Map();
+  for (let d = 0; d < 3; d++) {
+    const date = new Date(from.getFullYear(), from.getMonth(), from.getDate() + d, 12, 0);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const sunrise = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 6, 0);
+    const sunset = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 20, 0);
+    daily.set(key, { date, sunrise, sunset, lightFrom: sunrise, lightTo: sunset });
+    for (let h = 0; h < 24; h++) {
+      hours.push({
+        time: new Date(date.getFullYear(), date.getMonth(), date.getDate(), h, 0),
+        waveHeight: 0.9 + 0.2 * Math.sin(h / 4), swellHeight: 0.9,
+        wavePeriod: 9, swellPeriod: 9, waveDirection: 45, swellDirection: 45,
+        windKn: 8, windGustKn: 12, windDirection: 250,
+        tideNorm: 0.5, tideState: 'rising',
+        seaTemp: 15, airTemp: 16, apparentTemp: 14, precip: 0, daylight: h >= 6 && h <= 20,
+      });
+    }
+  }
+  return { spotId, fetchedAt: Date.now(), hours, daily, tideEvents: [], units: {} };
+}

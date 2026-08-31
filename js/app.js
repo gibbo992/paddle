@@ -24,6 +24,7 @@ const state = {
   busy: [],
   calStatus: { state: 'off', message: '' },
   view: 'now',
+  forecastMode: 'week',   // 'week' = all spots × days; 'hourly' = one spot
   selected: null,         // hour the user tapped, or null for "now"
   loading: false,
   error: null,
@@ -251,6 +252,28 @@ function render() {
   renderCalStatus();
 
   // --- Forecast
+  const weekMode = state.forecastMode === 'week';
+  $('weekWrap').hidden = !weekMode;
+  $('spotRowForecast').hidden = weekMode;
+  $('days').hidden = weekMode;
+  for (const b of $('forecastMode').querySelectorAll('button')) {
+    b.setAttribute('aria-pressed', String(b.dataset.mode === state.forecastMode));
+  }
+
+  if (weekMode) {
+    ui.renderWeek($('weekWrap'), {
+      forecasts: state.forecasts,
+      spots: spots.length ? spots : [spot],
+      craft, now, units: state.settings.units,
+      onPick: (id) => {
+        state.settings.spotId = id;
+        state.forecastMode = 'hourly';
+        persist();
+        render();
+      },
+    });
+  }
+
   ui.renderDays($('days'), $('forecastTable'), {
     forecast: fc, spot, craft, scoredHours: hours, now,
     units: state.settings.units,
@@ -412,6 +435,10 @@ function wire() {
     b.addEventListener('click', () => setView(b.dataset.view));
   }
   $('refreshBtn').addEventListener('click', () => loadAll({ force: true }));
+  $('forecastMode').addEventListener('click', (e) => {
+    const mode = e.target.closest('button')?.dataset.mode;
+    if (mode && mode !== state.forecastMode) { state.forecastMode = mode; render(); }
+  });
   $('settingsBtn').addEventListener('click', openSettings);
   $('closeSettings').addEventListener('click', closeSettings);
   $('settingsSheet').addEventListener('click', (e) => {
